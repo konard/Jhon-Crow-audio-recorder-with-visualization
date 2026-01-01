@@ -36,18 +36,11 @@ export abstract class BaseVisualizer implements Visualizer {
   async init(canvas: HTMLCanvasElement, options?: VisualizerOptions): Promise<void> {
     this.canvas = canvas;
     if (options) {
-      // Set options without loading images yet (we'll load them below)
-      const needsImageLoad =
-        options.backgroundImage !== undefined ||
-        options.foregroundImage !== undefined;
-
       this.options = { ...this.options, ...options };
-
-      if (needsImageLoad) {
-        await this.loadImages();
-      }
-    } else {
-      // Load any images from existing options
+    }
+    // Always load images if there are any in this.options (from constructor or passed options)
+    // This ensures images are loaded whether they came from the constructor or init()
+    if (this.options.backgroundImage || this.options.foregroundImage) {
       await this.loadImages();
     }
   }

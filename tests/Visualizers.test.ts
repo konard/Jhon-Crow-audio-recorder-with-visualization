@@ -202,4 +202,62 @@ describe('Visualizers', () => {
       visualizer.destroy();
     });
   });
+
+  describe('Image loading async behavior', () => {
+    // Minimal valid 1x1 red PNG for testing
+    const validPngBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==';
+
+    test('should await image loading when image is passed in constructor', async () => {
+      const visualizer = new BarVisualizer({
+        backgroundImage: validPngBase64,
+      });
+
+      // init should return a promise that resolves after images are loaded
+      const initPromise = visualizer.init(canvas);
+      expect(initPromise).toBeInstanceOf(Promise);
+      await initPromise;
+
+      // After init completes, backgroundImageElement should be set
+      expect((visualizer as unknown as { backgroundImageElement: HTMLImageElement | null }).backgroundImageElement).not.toBeNull();
+
+      visualizer.destroy();
+    });
+
+    test('should load images when constructor has image but init has other options', async () => {
+      const visualizer = new BarVisualizer({
+        backgroundImage: validPngBase64,
+      });
+
+      // Call init with other options (not including backgroundImage)
+      await visualizer.init(canvas, { primaryColor: '#ff0000' });
+
+      // Image should still be loaded from constructor options
+      expect((visualizer as unknown as { backgroundImageElement: HTMLImageElement | null }).backgroundImageElement).not.toBeNull();
+
+      visualizer.destroy();
+    });
+
+    test('should load images when passed only in init options', async () => {
+      const visualizer = new BarVisualizer();
+
+      // Call init with backgroundImage in options
+      await visualizer.init(canvas, { backgroundImage: validPngBase64 });
+
+      // Image should be loaded from init options
+      expect((visualizer as unknown as { backgroundImageElement: HTMLImageElement | null }).backgroundImageElement).not.toBeNull();
+
+      visualizer.destroy();
+    });
+
+    test('should not have undefined backgroundImageElement before init', () => {
+      const visualizer = new BarVisualizer({
+        backgroundImage: validPngBase64,
+      });
+
+      // Before init, backgroundImageElement should be null (not undefined or loaded)
+      expect((visualizer as unknown as { backgroundImageElement: HTMLImageElement | null }).backgroundImageElement).toBeNull();
+
+      visualizer.destroy();
+    });
+  });
 });

@@ -222,4 +222,33 @@ Object.defineProperty(global.navigator, 'mediaDevices', {
   writable: true,
 });
 
+// Mock Image to properly trigger onload for data URLs and file URLs
+// We need to patch the prototype to ensure onload is called
+const originalImageDescriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+
+Object.defineProperty(HTMLImageElement.prototype, 'src', {
+  get: function() {
+    return this._mockSrc || '';
+  },
+  set: function(value: string) {
+    this._mockSrc = value;
+    // Call original setter if it exists
+    if (originalImageDescriptor && originalImageDescriptor.set) {
+      originalImageDescriptor.set.call(this, value);
+    }
+    // Simulate async image loading
+    if (value) {
+      setTimeout(() => {
+        // Set mock dimensions
+        Object.defineProperty(this, 'width', { value: 100, configurable: true });
+        Object.defineProperty(this, 'height', { value: 100, configurable: true });
+        if (this.onload) {
+          this.onload(new Event('load'));
+        }
+      }, 0);
+    }
+  },
+  configurable: true,
+});
+
 export {};
