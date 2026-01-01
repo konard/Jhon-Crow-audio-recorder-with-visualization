@@ -467,15 +467,23 @@
         recorder.setVisualizer(visualizerSelect.value, getCurrentOptions());
       });
 
+      // Track background image URL
+      let currentBackgroundImageUrl = null;
+
       // Get current options
       function getCurrentOptions() {
-        return {
+        const options = {
           primaryColor: primaryColor.value,
           secondaryColor: secondaryColor.value,
           backgroundColor: bgColor.value,
           barCount: parseInt(barCount.value),
           mirror: mirror.checked,
         };
+        // Include background image if one is set
+        if (currentBackgroundImageUrl) {
+          options.backgroundImage = currentBackgroundImageUrl;
+        }
+        return options;
       }
 
       // Options change handlers
@@ -486,11 +494,13 @@
       });
 
       // Background image
-      bgImage.addEventListener('change', (e) => {
+      bgImage.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
           const url = URL.createObjectURL(file);
-          recorder.setVisualizerOptions({ backgroundImage: url });
+          currentBackgroundImageUrl = url;
+          // Wait for image to load before continuing to prevent flickering
+          await recorder.setVisualizerOptions({ backgroundImage: url });
         }
       });
 
@@ -507,6 +517,13 @@
         convertBtn.disabled = true;
         document.querySelector('.progress-bar').style.display = 'block';
         updateStatus('Converting audio to video...', 'recording');
+
+        // Pause AudioRecorder visualization during conversion to prevent flickering
+        // (both would draw to the same canvas causing visual artifacts)
+        const wasVisualizationActive = recorder.isVisualizationActive;
+        if (wasVisualizationActive) {
+          recorder.stopVisualization();
+        }
 
         try {
           const blob = await converter.convert({
@@ -531,6 +548,11 @@
           convertBtn.disabled = false;
           document.querySelector('.progress-bar').style.display = 'none';
           progressFill.style.width = '0%';
+
+          // Resume AudioRecorder visualization if it was active before conversion
+          if (wasVisualizationActive && recorder.sourceType) {
+            recorder.resumeVisualization();
+          }
         }
       });
 
