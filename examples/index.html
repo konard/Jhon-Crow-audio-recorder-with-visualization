@@ -494,12 +494,13 @@
       });
 
       // Background image
-      bgImage.addEventListener('change', (e) => {
+      bgImage.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
           const url = URL.createObjectURL(file);
           currentBackgroundImageUrl = url;
-          recorder.setVisualizerOptions({ backgroundImage: url });
+          // Wait for image to load before continuing to prevent flickering
+          await recorder.setVisualizerOptions({ backgroundImage: url });
         }
       });
 

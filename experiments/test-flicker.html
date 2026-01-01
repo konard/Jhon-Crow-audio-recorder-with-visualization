@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flickering Debug Test</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #1a1a2e;
+      color: #fff;
+      padding: 20px;
+    }
+    canvas {
+      border: 2px solid #333;
+      background: #000;
+    }
+    #logs {
+      background: #000;
+      padding: 10px;
+      margin-top: 20px;
+      font-family: monospace;
+      font-size: 12px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .log-entry { margin: 2px 0; }
+    .log-info { color: #0088ff; }
+    .log-warn { color: #ffaa00; }
+    .log-error { color: #ff4444; }
+  </style>
+</head>
+<body>
+  <h1>Image Flickering Debug Test</h1>
+
+  <div>
+    <label>Test Image: <input type="file" id="bgImage" accept="image/*"></label>
+    <button id="testBtn" disabled>Run Flicker Test</button>
+  </div>
+
+  <canvas id="canvas" width="800" height="400"></canvas>
+
+  <div id="logs"></div>
+
+  <script src="../dist/audio-recorder-visualization.umd.js"></script>
+  <script>
+    const logsDiv = document.getElementById('logs');
+    const originalLog = console.log;
+    const originalWarn = console.warn;
+    const originalError = console.error;
+
+    function log(level, ...args) {
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${level}`;
+      entry.textContent = `[${new Date().toISOString().substr(11, 12)}] ${args.join(' ')}`;
+      logsDiv.appendChild(entry);
+      logsDiv.scrollTop = logsDiv.scrollHeight;
+      originalLog.apply(console, args);
+    }
+
+    console.log = (...args) => log('info', ...args);
+    console.warn = (...args) => log('warn', ...args);
+    console.error = (...args) => log('error', ...args);
+
+    const bgImageInput = document.getElementById('bgImage');
+    const testBtn = document.getElementById('testBtn');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    let imageUrl = null;
+
+    bgImageInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        imageUrl = URL.createObjectURL(file);
+        testBtn.disabled = false;
+        console.log('Image loaded:', file.name);
+      }
+    });
+
+    testBtn.addEventListener('click', async () => {
+      testBtn.disabled = true;
+
+      const { BarVisualizer } = window.AudioRecorderVisualization;
+
+      console.log('=== TEST 1: Create visualizer with backgroundImage in constructor, then init() ===');
+
+      // This simulates what happens in AudioToVideoConverter.createBuiltInVisualizer
+      const viz1 = new BarVisualizer({ backgroundImage: imageUrl });
+      console.log('Created BarVisualizer with backgroundImage');
+      console.log('viz1.options.backgroundImage:', viz1.options?.backgroundImage ? 'SET' : 'NOT SET');
+
+      // This simulates init() being called with options
+      console.log('Calling init() with canvas and visualizerOptions...');
+      const initStart = performance.now();
+      await viz1.init(canvas, { primaryColor: '#ff0000' });
+      const initEnd = performance.now();
+      console.log('init() completed in', (initEnd - initStart).toFixed(2), 'ms');
+
+      // Check if background image is loaded
+      console.log('After init - backgroundImageElement:', viz1.backgroundImageElement ? 'LOADED' : 'NULL');
+
+      // Draw a frame
+      console.log('Drawing frame...');
+      const data = {
+        timeDomainData: new Uint8Array(2048).fill(128),
+        frequencyData: new Uint8Array(1024).fill(100),
+        timestamp: performance.now(),
+        width: canvas.width,
+        height: canvas.height,
+        sampleRate: 44100,
+        fftSize: 2048
+      };
+
+      viz1.draw(ctx, data);
+      console.log('Frame drawn - check if background image is visible');
+
+      console.log('');
+      console.log('=== TEST 2: Create NEW visualizer simulating AudioToVideoConverter flow ===');
+
+      // Wait a moment
+      await new Promise(r => setTimeout(r, 500));
+
+      // This is EXACTLY what AudioToVideoConverter does:
+      const options = { backgroundImage: imageUrl, primaryColor: '#00ff88' };
+      console.log('Creating NEW BarVisualizer with options:', JSON.stringify(Object.keys(options)));
+      const viz2 = new BarVisualizer(options);
+
+      console.log('Calling init(canvas, options)...');
+      const init2Start = performance.now();
+      await viz2.init(canvas, options);
+      const init2End = performance.now();
+      console.log('init() completed in', (init2End - init2Start).toFixed(2), 'ms');
+
+      console.log('After init - backgroundImageElement:', viz2.backgroundImageElement ? 'LOADED' : 'NULL');
+
+      // Draw multiple frames rapidly to see if image is stable
+      console.log('Drawing 10 frames rapidly...');
+      let nullCount = 0;
+      let loadedCount = 0;
+
+      for (let i = 0; i < 10; i++) {
+        if (viz2.backgroundImageElement) {
+          loadedCount++;
+        } else {
+          nullCount++;
+        }
+        viz2.draw(ctx, data);
+        await new Promise(r => setTimeout(r, 33)); // ~30fps
+      }
+
+      console.log('Frame drawing complete. Null:', nullCount, 'Loaded:', loadedCount);
+
+      if (nullCount > 0) {
+        console.error('FLICKERING DETECTED: Some frames had null backgroundImageElement');
+      } else {
+        console.log('SUCCESS: All frames had loaded backgroundImageElement');
+      }
+
+      testBtn.disabled = false;
+    });
+  </script>
+</body>
+</html>

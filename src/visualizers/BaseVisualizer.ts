@@ -96,8 +96,9 @@ export abstract class BaseVisualizer implements Visualizer {
 
   /**
    * Update visualizer options
+   * @returns Promise that resolves when any image loading is complete
    */
-  setOptions(options: Partial<VisualizerOptions>): void {
+  async setOptions(options: Partial<VisualizerOptions>): Promise<void> {
     const needsImageReload =
       options.backgroundImage !== undefined ||
       options.foregroundImage !== undefined;
@@ -105,7 +106,7 @@ export abstract class BaseVisualizer implements Visualizer {
     this.options = { ...this.options, ...options };
 
     if (needsImageReload) {
-      this.loadImages();
+      await this.loadImages();
     }
   }
 

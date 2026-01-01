@@ -259,5 +259,35 @@ describe('Visualizers', () => {
 
       visualizer.destroy();
     });
+
+    test('setOptions should await image loading when backgroundImage is set', async () => {
+      const visualizer = new BarVisualizer();
+      await visualizer.init(canvas);
+
+      // setOptions should return a promise that resolves after image loading
+      const setOptionsPromise = visualizer.setOptions({ backgroundImage: validPngBase64 });
+      expect(setOptionsPromise).toBeInstanceOf(Promise);
+      await setOptionsPromise;
+
+      // After setOptions completes, backgroundImageElement should be set
+      expect((visualizer as unknown as { backgroundImageElement: HTMLImageElement | null }).backgroundImageElement).not.toBeNull();
+
+      visualizer.destroy();
+    });
+
+    test('setOptions should return immediately when no image options are passed', async () => {
+      const visualizer = new BarVisualizer();
+      await visualizer.init(canvas);
+
+      // setOptions should still return a promise but resolve quickly
+      const setOptionsPromise = visualizer.setOptions({ primaryColor: '#ff0000' });
+      expect(setOptionsPromise).toBeInstanceOf(Promise);
+      await setOptionsPromise;
+
+      // backgroundImageElement should still be null
+      expect((visualizer as unknown as { backgroundImageElement: HTMLImageElement | null }).backgroundImageElement).toBeNull();
+
+      visualizer.destroy();
+    });
   });
 });

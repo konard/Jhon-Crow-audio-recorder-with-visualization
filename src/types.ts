@@ -54,8 +54,9 @@ export interface Visualizer {
   /**
    * Update visualizer options at runtime
    * @param options - New options to apply
+   * @returns Promise that resolves when any image loading is complete
    */
-  setOptions?(options: Partial<VisualizerOptions>): void;
+  setOptions?(options: Partial<VisualizerOptions>): void | Promise<void>;
 }
 
 /**

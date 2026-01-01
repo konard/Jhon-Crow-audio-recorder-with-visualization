@@ -336,10 +336,14 @@ export class AudioRecorder extends EventEmitter<AudioRecorderEvents> {
 
   /**
    * Update visualizer options
+   * @returns Promise that resolves when any image loading is complete
    */
-  setVisualizerOptions(options: Partial<VisualizerOptions>): void {
+  async setVisualizerOptions(options: Partial<VisualizerOptions>): Promise<void> {
     if (this.visualizer.setOptions) {
-      this.visualizer.setOptions(options);
+      const result = this.visualizer.setOptions(options);
+      if (result instanceof Promise) {
+        await result;
+      }
     }
   }
 
