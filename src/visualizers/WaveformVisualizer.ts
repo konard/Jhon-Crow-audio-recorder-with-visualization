@@ -35,8 +35,8 @@ export class WaveformVisualizer extends BaseVisualizer {
     let x = 0;
 
     for (let i = 0; i < timeDomainData.length; i++) {
-      const v = timeDomainData[i] / 128.0; // Normalize to 0-2
-      const y = (v * height) / 2;
+      const v = timeDomainData[i] / 128.0 - 1.0; // Normalize to -1 to 1
+      const y = height / 2 + (v * height) / 2; // Center around height/2
 
       if (i === 0) {
         ctx.moveTo(x, y);
@@ -55,8 +55,8 @@ export class WaveformVisualizer extends BaseVisualizer {
       x = 0;
 
       for (let i = 0; i < timeDomainData.length; i++) {
-        const v = timeDomainData[i] / 128.0;
-        const y = height - (v * height) / 2;
+        const v = timeDomainData[i] / 128.0 - 1.0; // Normalize to -1 to 1
+        const y = height / 2 - (v * height) / 2; // Mirror around height/2
 
         if (i === 0) {
           ctx.moveTo(x, y);
