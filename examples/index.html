@@ -504,12 +504,62 @@
         videoEl.title = 'Double-click for fullscreen';
 
         const infoDiv = document.createElement('div');
-        infoDiv.innerHTML = `
-          <p>Recording ${recordingCount}</p>
-          <p>Size: ${(blob.size / 1024 / 1024).toFixed(2)} MB</p>
-          <a href="${url}" download="recording-${recordingCount}.${blob.type.includes('mp4') ? 'mp4' : 'webm'}">Download</a>
-          <p style="font-size: 12px; color: #888; margin-top: 5px;">Double-click video for fullscreen</p>
-        `;
+        const fileName = `recording-${recordingCount}.${blob.type.includes('mp4') ? 'mp4' : 'webm'}`;
+
+        // Check if running in Electron
+        const isElectron = window.electronAPI && window.electronAPI.isElectron;
+
+        if (isElectron) {
+          // Electron: Use IPC to save and show in folder
+          infoDiv.innerHTML = `
+            <p>Recording ${recordingCount}</p>
+            <p>Size: ${(blob.size / 1024 / 1024).toFixed(2)} MB</p>
+            <button class="btn-info" data-blob-index="${recordingCount}">Save and Show in Folder</button>
+            <p style="font-size: 12px; color: #888; margin-top: 5px;">Double-click video for fullscreen</p>
+          `;
+
+          // Store blob reference for later use
+          item.dataset.blobUrl = url;
+          item.dataset.fileName = fileName;
+
+          // Add click handler for save button
+          const saveBtn = infoDiv.querySelector('button');
+          saveBtn.addEventListener('click', async () => {
+            try {
+              saveBtn.disabled = true;
+              saveBtn.textContent = 'Saving...';
+
+              const result = await window.electronAPI.saveVideoAndShow(blob, fileName);
+
+              if (result.success) {
+                saveBtn.textContent = 'Saved!';
+                setTimeout(() => {
+                  saveBtn.textContent = 'Save and Show in Folder';
+                  saveBtn.disabled = false;
+                }, 2000);
+              } else if (result.canceled) {
+                saveBtn.textContent = 'Save and Show in Folder';
+                saveBtn.disabled = false;
+              } else {
+                saveBtn.textContent = 'Error - Try Again';
+                saveBtn.disabled = false;
+                console.error('Save error:', result.error);
+              }
+            } catch (error) {
+              console.error('Error saving video:', error);
+              saveBtn.textContent = 'Error - Try Again';
+              saveBtn.disabled = false;
+            }
+          });
+        } else {
+          // Browser: Use regular download link
+          infoDiv.innerHTML = `
+            <p>Recording ${recordingCount}</p>
+            <p>Size: ${(blob.size / 1024 / 1024).toFixed(2)} MB</p>
+            <a href="${url}" download="${fileName}">Download</a>
+            <p style="font-size: 12px; color: #888; margin-top: 5px;">Double-click video for fullscreen</p>
+          `;
+        }
 
         item.appendChild(videoEl);
         item.appendChild(infoDiv);
@@ -544,10 +594,21 @@
       }
 
       // Options change handlers
-      [primaryColor, secondaryColor, bgColor, barCount, mirror].forEach(el => {
+      [primaryColor, secondaryColor, bgColor, mirror].forEach(el => {
         el.addEventListener('input', () => {
           recorder.setVisualizerOptions(getCurrentOptions());
         });
+      });
+
+      // Bar Count change handler with demo visualization
+      barCount.addEventListener('input', () => {
+        const newBarCount = parseInt(barCount.value);
+        recorder.setVisualizerOptions({ barCount: newBarCount });
+
+        // Show demo visualization if no audio source is active
+        if (!recorder.sourceType) {
+          recorder.showDemoVisualization(1000);
+        }
       });
 
       // Visualization alpha handler with display update

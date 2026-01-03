@@ -271,6 +271,63 @@ export class AudioRecorder extends EventEmitter<AudioRecorderEvents> {
   }
 
   /**
+   * Draw a single demo frame (for preview without audio source)
+   */
+  private drawDemoFrame(timestamp: number): void {
+    const data: VisualizationData = {
+      timeDomainData: this.analyzer.generateDemoTimeDomainData(),
+      frequencyData: this.analyzer.generateDemoFrequencyData(),
+      timestamp,
+      width: this.canvas.width,
+      height: this.canvas.height,
+      sampleRate: this.analyzer.sampleRate,
+      fftSize: this.analyzer.fftSize,
+    };
+
+    this.visualizer.draw(this.ctx, data);
+    this.emit('frame', data);
+  }
+
+  /**
+   * Show a brief demo visualization (for preview without audio source)
+   * Useful for previewing visualization settings changes
+   */
+  showDemoVisualization(durationMs: number = 1000): void {
+    // Stop any existing visualization
+    this.stopVisualization();
+
+    let startTime: number | null = null;
+    const animate = (timestamp: number): void => {
+      if (startTime === null) {
+        startTime = timestamp;
+      }
+
+      const elapsed = timestamp - startTime;
+
+      // Limit frame rate
+      if (timestamp - this.lastFrameTime >= this.frameInterval) {
+        this.lastFrameTime = timestamp;
+        this.drawDemoFrame(timestamp);
+      }
+
+      // Continue animation if duration hasn't elapsed
+      if (elapsed < durationMs) {
+        this.animationFrameId = requestAnimationFrame(animate);
+      } else {
+        // Clean up after demo
+        this.animationFrameId = null;
+        // If there was an active source, restart its visualization
+        if (this._sourceType !== null) {
+          this.startVisualization();
+        }
+      }
+    };
+
+    this.animationFrameId = requestAnimationFrame(animate);
+    this.log('Started demo visualization for', durationMs, 'ms');
+  }
+
+  /**
    * Start recording video
    */
   startRecording(options?: {

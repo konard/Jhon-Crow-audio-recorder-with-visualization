@@ -160,6 +160,65 @@ export class AudioAnalyzer {
   }
 
   /**
+   * Generate demo/test frequency data for visualization preview
+   * Creates a standard pattern that simulates music frequencies
+   */
+  generateDemoFrequencyData(): Uint8Array {
+    const demoData = new Uint8Array(this.frequencyBinCount);
+    const time = Date.now() / 1000;
+
+    // Generate a musical pattern with bass, mids, and highs
+    for (let i = 0; i < this.frequencyBinCount; i++) {
+      const frequency = i / this.frequencyBinCount;
+
+      // Bass frequencies (lower indices) - stronger
+      const bass = Math.exp(-frequency * 3) * 200;
+
+      // Mid frequencies - moderate
+      const mid = Math.exp(-Math.pow(frequency - 0.3, 2) * 10) * 150;
+
+      // High frequencies - softer
+      const high = Math.exp(-Math.pow(frequency - 0.7, 2) * 15) * 100;
+
+      // Add some animation with sine waves
+      const animation = Math.sin(time * 2 + i * 0.1) * 30 + 30;
+
+      // Combine all components
+      const value = bass + mid + high + animation;
+
+      demoData[i] = Math.min(255, Math.max(0, value));
+    }
+
+    return demoData;
+  }
+
+  /**
+   * Generate demo/test time domain data for visualization preview
+   * Creates a standard waveform pattern
+   */
+  generateDemoTimeDomainData(): Uint8Array {
+    const demoData = new Uint8Array(this.fftSize);
+    const time = Date.now() / 1000;
+
+    // Generate a simple waveform combining multiple frequencies
+    for (let i = 0; i < this.fftSize; i++) {
+      const t = i / this.fftSize;
+
+      // Combine multiple sine waves to create a more interesting waveform
+      const wave1 = Math.sin(t * Math.PI * 4 + time * 2) * 40;
+      const wave2 = Math.sin(t * Math.PI * 8 + time * 3) * 20;
+      const wave3 = Math.sin(t * Math.PI * 16 + time * 5) * 10;
+
+      // Center at 128 (silence) and add the waves
+      const value = 128 + wave1 + wave2 + wave3;
+
+      demoData[i] = Math.min(255, Math.max(0, value));
+    }
+
+    return demoData;
+  }
+
+  /**
    * Get FFT size
    */
   get fftSize(): number {

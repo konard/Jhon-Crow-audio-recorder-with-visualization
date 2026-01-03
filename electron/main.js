@@ -1,5 +1,6 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 // Keep a global reference of the window object to prevent garbage collection
 let mainWindow = null;
@@ -14,6 +15,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
     },
     icon: path.join(__dirname, 'icon.png'),
     title: 'Audio Recorder with Visualization',
@@ -63,4 +65,34 @@ app.on('web-contents-created', (event, contents) => {
       callback(false);
     }
   });
+});
+
+// IPC handler for saving file and showing in folder
+ipcMain.handle('save-video-and-show', async (event, blob, fileName) => {
+  try {
+    // Show save dialog
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: fileName,
+      filters: [
+        { name: 'Video Files', extensions: ['webm', 'mp4'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true };
+    }
+
+    // Write the blob to the selected file
+    const buffer = Buffer.from(blob);
+    fs.writeFileSync(result.filePath, buffer);
+
+    // Show the file in folder
+    shell.showItemInFolder(result.filePath);
+
+    return { success: true, filePath: result.filePath };
+  } catch (error) {
+    console.error('Error saving file:', error);
+    return { success: false, error: error.message };
+  }
 });
