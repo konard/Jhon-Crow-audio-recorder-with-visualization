@@ -89,6 +89,10 @@ export interface VisualizerOptions {
   foregroundAlpha?: number;
   /** Visualization opacity (0-1), default: 1 - controls transparency of waveforms, bars, particles, etc. */
   visualizationAlpha?: number;
+  /** Horizontal offset in pixels (can be negative), default: 0 - shifts visualization left/right */
+  offsetX?: number;
+  /** Vertical offset in pixels (can be negative), default: 0 - shifts visualization up/down */
+  offsetY?: number;
   /** Custom options for specific visualizers */
   custom?: Record<string, unknown>;
 }

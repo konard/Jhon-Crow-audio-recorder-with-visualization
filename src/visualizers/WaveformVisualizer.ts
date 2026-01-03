@@ -22,6 +22,9 @@ export class WaveformVisualizer extends BaseVisualizer {
     // Draw background
     this.drawBackground(ctx, data);
 
+    // Apply position offset
+    this.applyTransform(ctx);
+
     // Set up line style
     ctx.lineWidth = this.options.lineWidth!;
     ctx.strokeStyle = this.createGradient(ctx, 0, 0, width, 0);
@@ -81,6 +84,9 @@ export class WaveformVisualizer extends BaseVisualizer {
 
     // Restore previous alpha
     ctx.globalAlpha = previousAlpha;
+
+    // Restore transform
+    this.restoreTransform(ctx);
 
     // Draw foreground
     this.drawForeground(ctx, data);

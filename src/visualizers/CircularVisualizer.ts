@@ -34,8 +34,10 @@ export class CircularVisualizer extends BaseVisualizer {
     // Apply visualization alpha
     const visualizationAlpha = this.options.visualizationAlpha ?? 1;
 
-    const centerX = width / 2;
-    const centerY = height / 2;
+    const offsetX = this.options.offsetX ?? 0;
+    const offsetY = this.options.offsetY ?? 0;
+    const centerX = width / 2 + offsetX;
+    const centerY = height / 2 + offsetY;
     const minDimension = Math.min(width, height);
 
     const barCount = this.options.barCount!;

@@ -27,6 +27,8 @@ export abstract class BaseVisualizer implements Visualizer {
       smoothing: 0.8,
       foregroundAlpha: 1,
       visualizationAlpha: 1,
+      offsetX: 0,
+      offsetY: 0,
       ...options,
     };
   }
@@ -190,6 +192,33 @@ export abstract class BaseVisualizer implements Visualizer {
     gradient.addColorStop(0, this.options.primaryColor!);
     gradient.addColorStop(1, this.options.secondaryColor!);
     return gradient;
+  }
+
+  /**
+   * Apply position offset transformation to context
+   * Call this before drawing visualization, and call restoreTransform() after
+   */
+  protected applyTransform(ctx: CanvasRenderingContext2D): void {
+    const offsetX = this.options.offsetX ?? 0;
+    const offsetY = this.options.offsetY ?? 0;
+
+    if (offsetX !== 0 || offsetY !== 0) {
+      ctx.save();
+      ctx.translate(offsetX, offsetY);
+    }
+  }
+
+  /**
+   * Restore context transformation state
+   * Call this after drawing visualization if applyTransform() was called
+   */
+  protected restoreTransform(ctx: CanvasRenderingContext2D): void {
+    const offsetX = this.options.offsetX ?? 0;
+    const offsetY = this.options.offsetY ?? 0;
+
+    if (offsetX !== 0 || offsetY !== 0) {
+      ctx.restore();
+    }
   }
 
   /**

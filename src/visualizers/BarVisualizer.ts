@@ -25,6 +25,9 @@ export class BarVisualizer extends BaseVisualizer {
     // Draw background
     this.drawBackground(ctx, data);
 
+    // Apply position offset
+    this.applyTransform(ctx);
+
     // Apply visualization alpha
     const visualizationAlpha = this.options.visualizationAlpha ?? 1;
     const previousAlpha = ctx.globalAlpha;
@@ -88,6 +91,9 @@ export class BarVisualizer extends BaseVisualizer {
 
     // Restore previous alpha
     ctx.globalAlpha = previousAlpha;
+
+    // Restore transform
+    this.restoreTransform(ctx);
 
     // Draw foreground
     this.drawForeground(ctx, data);
