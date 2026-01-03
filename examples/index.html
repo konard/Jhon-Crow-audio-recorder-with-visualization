@@ -168,6 +168,11 @@
     .recording-item video {
       max-width: 200px;
       border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .recording-item video:hover {
+      box-shadow: 0 4px 12px rgba(0, 255, 136, 0.3);
     }
 
     .recording-item a {
@@ -451,14 +456,38 @@
         const url = URL.createObjectURL(blob);
         const item = document.createElement('div');
         item.className = 'recording-item';
-        item.innerHTML = `
-          <video controls src="${url}" width="200"></video>
-          <div>
-            <p>Recording ${recordingCount}</p>
-            <p>Size: ${(blob.size / 1024 / 1024).toFixed(2)} MB</p>
-            <a href="${url}" download="recording-${recordingCount}.${blob.type.includes('mp4') ? 'mp4' : 'webm'}">Download</a>
-          </div>
+
+        const videoEl = document.createElement('video');
+        videoEl.controls = true;
+        videoEl.src = url;
+        videoEl.width = 200;
+
+        // Enable fullscreen on double-click
+        videoEl.addEventListener('dblclick', () => {
+          if (videoEl.requestFullscreen) {
+            videoEl.requestFullscreen();
+          } else if (videoEl.webkitRequestFullscreen) {
+            videoEl.webkitRequestFullscreen();
+          } else if (videoEl.mozRequestFullScreen) {
+            videoEl.mozRequestFullScreen();
+          } else if (videoEl.msRequestFullscreen) {
+            videoEl.msRequestFullscreen();
+          }
+        });
+
+        // Add title attribute for hint
+        videoEl.title = 'Double-click for fullscreen';
+
+        const infoDiv = document.createElement('div');
+        infoDiv.innerHTML = `
+          <p>Recording ${recordingCount}</p>
+          <p>Size: ${(blob.size / 1024 / 1024).toFixed(2)} MB</p>
+          <a href="${url}" download="recording-${recordingCount}.${blob.type.includes('mp4') ? 'mp4' : 'webm'}">Download</a>
+          <p style="font-size: 12px; color: #888; margin-top: 5px;">Double-click video for fullscreen</p>
         `;
+
+        item.appendChild(videoEl);
+        item.appendChild(infoDiv);
         recordingsList.appendChild(item);
       }
 
