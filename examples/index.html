@@ -1041,6 +1041,26 @@
           Center Image (for Circular visualizer)
           <input type="file" id="centerImage" accept="image/*" aria-label="Upload center image">
         </label>
+        <label>
+          Center Image Zoom
+          <input type="range" id="centerImageZoom" min="50" max="300" value="100" step="5">
+          <span id="centerImageZoomValue">100%</span>
+        </label>
+      </div>
+      <div class="option-group" id="centerImagePositionControls" style="display: none;">
+        <label>
+          Center Image X Offset
+          <input type="range" id="centerImageOffsetX" min="-100" max="100" value="0">
+          <span id="centerImageOffsetXValue">0px</span>
+        </label>
+        <label>
+          Center Image Y Offset
+          <input type="range" id="centerImageOffsetY" min="-100" max="100" value="0">
+          <span id="centerImageOffsetYValue">0px</span>
+        </label>
+        <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
+          Tip: Hold Shift and drag on canvas to move center image
+        </p>
       </div>
       <div class="option-group">
         <label>
@@ -1179,6 +1199,13 @@
       const useCustomColors = document.getElementById('useCustomColors');
       const centerImage = document.getElementById('centerImage');
       const centerImageControls = document.getElementById('centerImageControls');
+      const centerImagePositionControls = document.getElementById('centerImagePositionControls');
+      const centerImageZoom = document.getElementById('centerImageZoom');
+      const centerImageZoomValue = document.getElementById('centerImageZoomValue');
+      const centerImageOffsetX = document.getElementById('centerImageOffsetX');
+      const centerImageOffsetXValue = document.getElementById('centerImageOffsetXValue');
+      const centerImageOffsetY = document.getElementById('centerImageOffsetY');
+      const centerImageOffsetYValue = document.getElementById('centerImageOffsetYValue');
 
       // Settings persistence
       const SETTINGS_KEY = 'audio-recorder-settings';
@@ -1203,6 +1230,9 @@
         layerEffectIntensity: 50,
         useCustomColors: false,
         centerImage: null,
+        centerImageZoom: 100,
+        centerImageOffsetX: 0,
+        centerImageOffsetY: 0,
       };
 
       // Load settings from localStorage
@@ -1252,6 +1282,9 @@
           layerEffectIntensity: parseInt(layerEffectIntensity.value),
           useCustomColors: useCustomColors.checked,
           centerImage: currentCenterImageUrl,
+          centerImageZoom: parseInt(centerImageZoom.value),
+          centerImageOffsetX: parseInt(centerImageOffsetX.value),
+          centerImageOffsetY: parseInt(centerImageOffsetY.value),
         };
       }
 
@@ -1285,7 +1318,20 @@
         useCustomColors.checked = settings.useCustomColors || false;
 
         // Show/hide center image controls based on visualizer
-        centerImageControls.style.display = settings.visualizer === 'circular' ? 'grid' : 'none';
+        const isCircular = settings.visualizer === 'circular';
+        centerImageControls.style.display = isCircular ? 'grid' : 'none';
+
+        // Show center image position controls only if circular and has center image
+        const hasCenterImage = settings.centerImage || currentCenterImageUrl;
+        centerImagePositionControls.style.display = (isCircular && hasCenterImage) ? 'grid' : 'none';
+
+        // Center image zoom and offset settings
+        centerImageZoom.value = settings.centerImageZoom || 100;
+        centerImageZoomValue.textContent = (settings.centerImageZoom || 100) + '%';
+        centerImageOffsetX.value = settings.centerImageOffsetX || 0;
+        centerImageOffsetXValue.textContent = (settings.centerImageOffsetX || 0) + 'px';
+        centerImageOffsetY.value = settings.centerImageOffsetY || 0;
+        centerImageOffsetYValue.textContent = (settings.centerImageOffsetY || 0) + 'px';
 
         // Restore background image if saved
         if (settings.backgroundImage) {
@@ -1338,9 +1384,12 @@
         visualizerOptions.backgroundImage = savedSettings.backgroundImage;
       }
 
-      // Add center image if it was saved (for circular visualizer)
+      // Add center image and its settings if it was saved (for circular visualizer)
       if (savedSettings.centerImage) {
         visualizerOptions.custom.centerImage = savedSettings.centerImage;
+        visualizerOptions.custom.centerImageZoom = (savedSettings.centerImageZoom || 100) / 100;
+        visualizerOptions.custom.centerImageOffsetX = savedSettings.centerImageOffsetX || 0;
+        visualizerOptions.custom.centerImageOffsetY = savedSettings.centerImageOffsetY || 0;
       }
 
       // Add custom color scheme/fillStyle if using custom colors (for spectrogram/spectrum-gradient)
@@ -1534,7 +1583,10 @@
 
         saveSettings(getCurrentSettings());
         // Show/hide center image controls based on visualizer type
-        centerImageControls.style.display = visualizerSelect.value === 'circular' ? 'grid' : 'none';
+        const isCircular = visualizerSelect.value === 'circular';
+        centerImageControls.style.display = isCircular ? 'grid' : 'none';
+        // Show center image position controls only if circular and has center image
+        centerImagePositionControls.style.display = (isCircular && currentCenterImageUrl) ? 'grid' : 'none';
         updatePreview();
       });
 
@@ -1582,6 +1634,9 @@
         // Include center image if one is set (for circular visualizer)
         if (currentCenterImageUrl) {
           options.custom.centerImage = currentCenterImageUrl;
+          options.custom.centerImageZoom = parseInt(centerImageZoom.value) / 100;
+          options.custom.centerImageOffsetX = parseInt(centerImageOffsetX.value);
+          options.custom.centerImageOffsetY = parseInt(centerImageOffsetY.value);
         }
         return options;
       }
@@ -1920,6 +1975,9 @@
         recorder.setVisualizerOptions({ custom: { centerImage: croppedDataUrl } });
         saveSettings(getCurrentSettings());
 
+        // Show center image position controls since we now have a center image
+        centerImagePositionControls.style.display = 'grid';
+
         closeCropper();
         updatePreview();
       }
@@ -1956,6 +2014,51 @@
           };
           reader.readAsDataURL(file);
         }
+      });
+
+      // Center image zoom handler
+      centerImageZoom.addEventListener('input', () => {
+        const zoomValue = parseInt(centerImageZoom.value);
+        centerImageZoomValue.textContent = zoomValue + '%';
+        recorder.setVisualizerOptions({
+          custom: {
+            centerImageZoom: zoomValue / 100,
+          },
+        });
+        updatePreview();
+      });
+      centerImageZoom.addEventListener('change', () => {
+        saveSettings(getCurrentSettings());
+      });
+
+      // Center image offset X handler
+      centerImageOffsetX.addEventListener('input', () => {
+        const offsetXVal = parseInt(centerImageOffsetX.value);
+        centerImageOffsetXValue.textContent = offsetXVal + 'px';
+        recorder.setVisualizerOptions({
+          custom: {
+            centerImageOffsetX: offsetXVal,
+          },
+        });
+        updatePreview();
+      });
+      centerImageOffsetX.addEventListener('change', () => {
+        saveSettings(getCurrentSettings());
+      });
+
+      // Center image offset Y handler
+      centerImageOffsetY.addEventListener('input', () => {
+        const offsetYVal = parseInt(centerImageOffsetY.value);
+        centerImageOffsetYValue.textContent = offsetYVal + 'px';
+        recorder.setVisualizerOptions({
+          custom: {
+            centerImageOffsetY: offsetYVal,
+          },
+        });
+        updatePreview();
+      });
+      centerImageOffsetY.addEventListener('change', () => {
+        saveSettings(getCurrentSettings());
       });
 
       // Update progress bar with accessibility
@@ -2045,14 +2148,24 @@
       let canvasDragStartY = 0;
       let canvasDragStartOffsetX = 0;
       let canvasDragStartOffsetY = 0;
+      let isDraggingCenterImage = false; // Track if we're dragging center image (Shift key)
 
       // Mouse drag handlers for canvas
       canvas.addEventListener('mousedown', (e) => {
         canvasDragging = true;
         canvasDragStartX = e.clientX;
         canvasDragStartY = e.clientY;
-        canvasDragStartOffsetX = parseInt(offsetX.value);
-        canvasDragStartOffsetY = parseInt(offsetY.value);
+
+        // Check if Shift key is held and we're in circular mode with center image
+        isDraggingCenterImage = e.shiftKey && visualizerSelect.value === 'circular' && currentCenterImageUrl;
+
+        if (isDraggingCenterImage) {
+          canvasDragStartOffsetX = parseInt(centerImageOffsetX.value);
+          canvasDragStartOffsetY = parseInt(centerImageOffsetY.value);
+        } else {
+          canvasDragStartOffsetX = parseInt(offsetX.value);
+          canvasDragStartOffsetY = parseInt(offsetY.value);
+        }
         canvas.style.cursor = 'grabbing';
       });
 
@@ -2060,23 +2173,46 @@
         if (!canvasDragging) return;
         const dx = e.clientX - canvasDragStartX;
         const dy = e.clientY - canvasDragStartY;
-        const newOffsetX = Math.max(-200, Math.min(200, canvasDragStartOffsetX + dx));
-        const newOffsetY = Math.max(-200, Math.min(200, canvasDragStartOffsetY + dy));
 
-        // Update sliders
-        offsetX.value = newOffsetX;
-        offsetY.value = newOffsetY;
-        offsetXValue.textContent = newOffsetX + 'px';
-        offsetYValue.textContent = newOffsetY + 'px';
+        if (isDraggingCenterImage) {
+          // Drag center image position
+          const newCenterOffsetX = Math.max(-100, Math.min(100, canvasDragStartOffsetX + dx));
+          const newCenterOffsetY = Math.max(-100, Math.min(100, canvasDragStartOffsetY + dy));
 
-        // Update visualizer
-        recorder.setVisualizerOptions({ offsetX: newOffsetX, offsetY: newOffsetY });
+          // Update sliders
+          centerImageOffsetX.value = newCenterOffsetX;
+          centerImageOffsetY.value = newCenterOffsetY;
+          centerImageOffsetXValue.textContent = newCenterOffsetX + 'px';
+          centerImageOffsetYValue.textContent = newCenterOffsetY + 'px';
+
+          // Update visualizer
+          recorder.setVisualizerOptions({
+            custom: {
+              centerImageOffsetX: newCenterOffsetX,
+              centerImageOffsetY: newCenterOffsetY,
+            },
+          });
+        } else {
+          // Drag visualization position
+          const newOffsetX = Math.max(-200, Math.min(200, canvasDragStartOffsetX + dx));
+          const newOffsetY = Math.max(-200, Math.min(200, canvasDragStartOffsetY + dy));
+
+          // Update sliders
+          offsetX.value = newOffsetX;
+          offsetY.value = newOffsetY;
+          offsetXValue.textContent = newOffsetX + 'px';
+          offsetYValue.textContent = newOffsetY + 'px';
+
+          // Update visualizer
+          recorder.setVisualizerOptions({ offsetX: newOffsetX, offsetY: newOffsetY });
+        }
         updatePreview();
       });
 
       canvas.addEventListener('mouseup', () => {
         if (canvasDragging) {
           canvasDragging = false;
+          isDraggingCenterImage = false;
           canvas.style.cursor = 'grab';
           saveSettings(getCurrentSettings());
         }
@@ -2085,6 +2221,7 @@
       canvas.addEventListener('mouseleave', () => {
         if (canvasDragging) {
           canvasDragging = false;
+          isDraggingCenterImage = false;
           canvas.style.cursor = 'grab';
           saveSettings(getCurrentSettings());
         }

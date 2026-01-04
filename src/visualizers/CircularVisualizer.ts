@@ -22,6 +22,9 @@ export class CircularVisualizer extends BaseVisualizer {
         maxBarHeight: 0.35, // Max bar height as fraction of min dimension
         rotationSpeed: 0, // Rotation speed in radians per frame
         centerImage: null, // Center image for circular visualization
+        centerImageOffsetX: 0, // Center image X offset for positioning
+        centerImageOffsetY: 0, // Center image Y offset for positioning
+        centerImageZoom: 1, // Center image zoom level (1 = fit to circle)
         useColorGradient: false, // Use primary/secondary colors instead of rainbow
         ...options.custom,
       },
@@ -194,17 +197,26 @@ export class CircularVisualizer extends BaseVisualizer {
     const centerRadius = innerRadius * 0.9;
 
     if (this.centerImageElement) {
-      // Draw center image
+      // Draw center image with offset and zoom support
       ctx.save();
       ctx.beginPath();
       ctx.arc(centerX, centerY, centerRadius, 0, Math.PI * 2);
       ctx.clip();
+
+      // Get center image offset and zoom
+      const imgOffsetX = (this.options.custom?.centerImageOffsetX as number) ?? 0;
+      const imgOffsetY = (this.options.custom?.centerImageOffsetY as number) ?? 0;
+      const imgZoom = (this.options.custom?.centerImageZoom as number) ?? 1;
+
+      // Calculate zoomed size
+      const zoomedSize = centerRadius * 2 * imgZoom;
+
       ctx.drawImage(
         this.centerImageElement,
-        centerX - centerRadius,
-        centerY - centerRadius,
-        centerRadius * 2,
-        centerRadius * 2
+        centerX - zoomedSize / 2 + imgOffsetX,
+        centerY - zoomedSize / 2 + imgOffsetY,
+        zoomedSize,
+        zoomedSize
       );
       ctx.restore();
     } else {
