@@ -24,6 +24,7 @@ export class VUMeterVisualizer extends BaseVisualizer {
         showPeakIndicator: true,
         peakHoldTime: 30,
         horizontalLayout: true,
+        useCustomColors: false, // Use primary/secondary colors instead of green/yellow/red
         ...options.custom,
       },
     });
@@ -31,9 +32,17 @@ export class VUMeterVisualizer extends BaseVisualizer {
 
   draw(ctx: CanvasRenderingContext2D, data: VisualizationData): void {
     const { width, height, frequencyData } = data;
+    // Validate dimensions before drawing
+    if (!this.isValidDimensions(width, height)) {
+      return;
+    }
+
 
     // Draw background
     this.drawBackground(ctx, data);
+
+    // Apply layer effects to background
+    this.applyLayerEffect(ctx, data);
 
     // Apply position offset
     this.applyTransform(ctx);
@@ -134,6 +143,10 @@ export class VUMeterVisualizer extends BaseVisualizer {
     // Draw level bar
     const levelWidth = meterWidth * level;
 
+    const useCustomColors = this.options.custom?.useCustomColors as boolean;
+    const primaryColor = this.options.primaryColor!;
+    const secondaryColor = this.options.secondaryColor!;
+
     if (style === 'led') {
       // LED style
       const ledCount = 40;
@@ -144,12 +157,17 @@ export class VUMeterVisualizer extends BaseVisualizer {
         const x = padding + i * ledWidth + 2;
         const ratio = i / ledCount;
 
-        if (ratio < 0.7) {
-          ctx.fillStyle = '#00ff00'; // Green
-        } else if (ratio < 0.9) {
-          ctx.fillStyle = '#ffff00'; // Yellow
+        if (useCustomColors) {
+          // Interpolate between primary and secondary colors
+          ctx.fillStyle = ratio < 0.5 ? primaryColor : secondaryColor;
         } else {
-          ctx.fillStyle = '#ff0000'; // Red
+          if (ratio < 0.7) {
+            ctx.fillStyle = '#00ff00'; // Green
+          } else if (ratio < 0.9) {
+            ctx.fillStyle = '#ffff00'; // Yellow
+          } else {
+            ctx.fillStyle = '#ff0000'; // Red
+          }
         }
 
         ctx.fillRect(x, meterY + 4, ledWidth - 4, meterHeight - 8);
@@ -157,10 +175,15 @@ export class VUMeterVisualizer extends BaseVisualizer {
     } else {
       // Modern/Classic gradient
       const gradient = ctx.createLinearGradient(padding, 0, padding + meterWidth, 0);
-      gradient.addColorStop(0, '#00ff00');
-      gradient.addColorStop(0.7, '#00ff00');
-      gradient.addColorStop(0.85, '#ffff00');
-      gradient.addColorStop(1, '#ff0000');
+      if (useCustomColors) {
+        gradient.addColorStop(0, primaryColor);
+        gradient.addColorStop(1, secondaryColor);
+      } else {
+        gradient.addColorStop(0, '#00ff00');
+        gradient.addColorStop(0.7, '#00ff00');
+        gradient.addColorStop(0.85, '#ffff00');
+        gradient.addColorStop(1, '#ff0000');
+      }
 
       ctx.fillStyle = gradient;
       ctx.fillRect(padding, meterY, levelWidth, meterHeight);
@@ -221,6 +244,10 @@ export class VUMeterVisualizer extends BaseVisualizer {
     const levelHeight = meterHeight * level;
     const levelY = padding + meterHeight - levelHeight;
 
+    const useCustomColors = this.options.custom?.useCustomColors as boolean;
+    const primaryColor = this.options.primaryColor!;
+    const secondaryColor = this.options.secondaryColor!;
+
     if (style === 'led') {
       // LED style
       const ledCount = 40;
@@ -231,12 +258,17 @@ export class VUMeterVisualizer extends BaseVisualizer {
         const y = padding + meterHeight - (i + 1) * ledHeight + 2;
         const ratio = i / ledCount;
 
-        if (ratio < 0.7) {
-          ctx.fillStyle = '#00ff00'; // Green
-        } else if (ratio < 0.9) {
-          ctx.fillStyle = '#ffff00'; // Yellow
+        if (useCustomColors) {
+          // Interpolate between primary and secondary colors
+          ctx.fillStyle = ratio < 0.5 ? primaryColor : secondaryColor;
         } else {
-          ctx.fillStyle = '#ff0000'; // Red
+          if (ratio < 0.7) {
+            ctx.fillStyle = '#00ff00'; // Green
+          } else if (ratio < 0.9) {
+            ctx.fillStyle = '#ffff00'; // Yellow
+          } else {
+            ctx.fillStyle = '#ff0000'; // Red
+          }
         }
 
         ctx.fillRect(meterX + 4, y, meterWidth - 8, ledHeight - 4);
@@ -244,10 +276,15 @@ export class VUMeterVisualizer extends BaseVisualizer {
     } else {
       // Modern/Classic gradient
       const gradient = ctx.createLinearGradient(0, padding + meterHeight, 0, padding);
-      gradient.addColorStop(0, '#00ff00');
-      gradient.addColorStop(0.7, '#00ff00');
-      gradient.addColorStop(0.85, '#ffff00');
-      gradient.addColorStop(1, '#ff0000');
+      if (useCustomColors) {
+        gradient.addColorStop(0, primaryColor);
+        gradient.addColorStop(1, secondaryColor);
+      } else {
+        gradient.addColorStop(0, '#00ff00');
+        gradient.addColorStop(0.7, '#00ff00');
+        gradient.addColorStop(0.85, '#ffff00');
+        gradient.addColorStop(1, '#ff0000');
+      }
 
       ctx.fillStyle = gradient;
       ctx.fillRect(meterX, levelY, meterWidth, levelHeight);

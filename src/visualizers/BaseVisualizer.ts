@@ -30,6 +30,8 @@ export abstract class BaseVisualizer implements Visualizer {
       offsetX: 0,
       offsetY: 0,
       backgroundSizeMode: 'cover',
+      layerEffect: 'none',
+      layerEffectIntensity: 50,
       ...options,
     };
   }
@@ -41,6 +43,13 @@ export abstract class BaseVisualizer implements Visualizer {
   async init(canvas: HTMLCanvasElement, options?: VisualizerOptions): Promise<void> {
     this.canvas = canvas;
     if (options) {
+      // Deep merge the custom options to preserve existing custom settings from constructor
+      if (options.custom && this.options.custom) {
+        options = {
+          ...options,
+          custom: { ...this.options.custom, ...options.custom },
+        };
+      }
       this.options = { ...this.options, ...options };
     }
     // Always load images if there are any in this.options (from constructor or passed options)
@@ -108,11 +117,26 @@ export abstract class BaseVisualizer implements Visualizer {
       options.backgroundImage !== undefined ||
       options.foregroundImage !== undefined;
 
+    // Deep merge the custom options to preserve existing custom settings
+    if (options.custom && this.options.custom) {
+      options = {
+        ...options,
+        custom: { ...this.options.custom, ...options.custom },
+      };
+    }
+
     this.options = { ...this.options, ...options };
 
     if (needsImageReload) {
       await this.loadImages();
     }
+  }
+
+  /**
+   * Validate that dimensions are valid for drawing
+   */
+  protected isValidDimensions(width: number, height: number): boolean {
+    return width > 0 && height > 0 && isFinite(width) && isFinite(height);
   }
 
   /**
@@ -151,6 +175,68 @@ export abstract class BaseVisualizer implements Visualizer {
     } else {
       ctx.fillStyle = this.options.backgroundColor!;
       ctx.fillRect(0, 0, data.width, data.height);
+    }
+  }
+
+  /**
+   * Apply layer effects to the background (between background and visualization)
+   * This should be called AFTER drawBackground to apply effect to background only
+   */
+  protected applyLayerEffect(ctx: CanvasRenderingContext2D, data: VisualizationData): void {
+    const effect = this.options.layerEffect ?? 'none';
+    if (effect === 'none') {
+      return;
+    }
+
+    const intensity = this.options.layerEffectIntensity ?? 50;
+    const { width, height } = data;
+
+    // Create a temporary canvas to capture current background
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = width;
+    tempCanvas.height = height;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
+
+    // Copy current canvas content (background) to temp canvas
+    tempCtx.drawImage(ctx.canvas, 0, 0);
+
+    // Build the CSS filter value
+    let filterValue = '';
+    switch (effect) {
+      case 'blur':
+        filterValue = `blur(${(intensity / 100) * 10}px)`;
+        break;
+      case 'brightness':
+        filterValue = `brightness(${50 + (intensity / 100) * 150}%)`;
+        break;
+      case 'contrast':
+        filterValue = `contrast(${50 + (intensity / 100) * 150}%)`;
+        break;
+      case 'grayscale':
+        filterValue = `grayscale(${intensity}%)`;
+        break;
+      case 'invert':
+        filterValue = `invert(${intensity}%)`;
+        break;
+      case 'sepia':
+        filterValue = `sepia(${intensity}%)`;
+        break;
+      case 'saturate':
+        filterValue = `saturate(${intensity * 2}%)`;
+        break;
+      case 'hue-rotate':
+        filterValue = `hue-rotate(${(intensity / 100) * 360}deg)`;
+        break;
+    }
+
+    if (filterValue) {
+      // Clear the main canvas
+      ctx.clearRect(0, 0, width, height);
+      // Draw the background with the filter effect applied
+      ctx.filter = filterValue;
+      ctx.drawImage(tempCanvas, 0, 0);
+      ctx.filter = 'none';
     }
   }
 

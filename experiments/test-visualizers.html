@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Visualizer Debug Test</title>
+  <style>
+    canvas { border: 1px solid red; display: block; margin: 10px; }
+    .info { margin: 10px; padding: 10px; background: #eee; }
+  </style>
+</head>
+<body>
+  <h1>Visualizer Debug Test</h1>
+
+  <div class="info" id="info">Loading...</div>
+
+  <canvas id="testCanvas" width="400" height="200"></canvas>
+
+  <script src="../dist/audio-recorder-visualization.umd.js"></script>
+  <script>
+    const { BarVisualizer, CircularVisualizer, ParticleVisualizer } = AudioRecorderVisualization;
+
+    const canvas = document.getElementById('testCanvas');
+    const ctx = canvas.getContext('2d');
+    const info = document.getElementById('info');
+
+    // Generate demo data similar to AudioAnalyzer
+    function generateDemoFrequencyData() {
+      const frequencyBinCount = 1024;
+      const demoData = new Uint8Array(frequencyBinCount);
+      const time = Date.now() / 1000;
+
+      for (let i = 0; i < frequencyBinCount; i++) {
+        const frequency = i / frequencyBinCount;
+        const bass = Math.exp(-frequency * 3) * 200;
+        const mid = Math.exp(-Math.pow(frequency - 0.3, 2) * 10) * 150;
+        const high = Math.exp(-Math.pow(frequency - 0.7, 2) * 15) * 100;
+        const animation = Math.sin(time * 2 + i * 0.1) * 30 + 30;
+        const value = bass + mid + high + animation;
+        demoData[i] = Math.min(255, Math.max(0, value));
+      }
+      return demoData;
+    }
+
+    function generateDemoTimeDomainData() {
+      const fftSize = 2048;
+      const demoData = new Uint8Array(fftSize);
+      const time = Date.now() / 1000;
+
+      for (let i = 0; i < fftSize; i++) {
+        const t = i / fftSize;
+        const wave1 = Math.sin(t * Math.PI * 4 + time * 2) * 40;
+        const wave2 = Math.sin(t * Math.PI * 8 + time * 3) * 20;
+        const wave3 = Math.sin(t * Math.PI * 16 + time * 5) * 10;
+        const value = 128 + wave1 + wave2 + wave3;
+        demoData[i] = Math.min(255, Math.max(0, value));
+      }
+      return demoData;
+    }
+
+    // Test visualizers (only those exported in the UMD)
+    const visualizers = {
+      'bars': new BarVisualizer(),
+      'circular': new CircularVisualizer(),
+      'particles': new ParticleVisualizer(),
+    };
+
+    let currentVisualizer = 'circular';
+
+    async function initVisualizer(name) {
+      currentVisualizer = name;
+      const viz = visualizers[name];
+      await viz.init(canvas);
+      info.textContent = `Current: ${name}`;
+    }
+
+    function drawFrame() {
+      const viz = visualizers[currentVisualizer];
+      const data = {
+        width: canvas.width,
+        height: canvas.height,
+        frequencyData: generateDemoFrequencyData(),
+        timeDomainData: generateDemoTimeDomainData(),
+        timestamp: Date.now(),
+        sampleRate: 44100,
+        fftSize: 2048,
+      };
+
+      viz.draw(ctx, data);
+
+      // Check for non-black pixels
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      let nonBlack = 0;
+      for (let i = 0; i < imageData.data.length; i += 4) {
+        if (imageData.data[i] > 0 || imageData.data[i+1] > 0 || imageData.data[i+2] > 0) {
+          nonBlack++;
+        }
+      }
+      const percent = (nonBlack / (canvas.width * canvas.height) * 100).toFixed(2);
+      info.textContent = `${currentVisualizer}: ${percent}% non-black pixels`;
+
+      requestAnimationFrame(drawFrame);
+    }
+
+    // Cycle through visualizers
+    let vizIndex = 0;
+    const vizNames = Object.keys(visualizers);
+
+    async function cycleVisualizer() {
+      vizIndex = (vizIndex + 1) % vizNames.length;
+      await initVisualizer(vizNames[vizIndex]);
+    }
+
+    // Click to cycle
+    canvas.addEventListener('click', cycleVisualizer);
+
+    // Start
+    initVisualizer('circular').then(() => {
+      drawFrame();
+    });
+  </script>
+</body>
+</html>

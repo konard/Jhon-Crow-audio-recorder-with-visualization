@@ -31,6 +31,7 @@ export class ParticleVisualizer extends BaseVisualizer {
         particleBaseSize: 3,
         particleSpeedFactor: 2,
         spawnRate: 5, // Particles per frame based on audio level
+        useCustomColors: false, // Use primary/secondary colors instead of rainbow
         ...options.custom,
       },
     });
@@ -39,6 +40,11 @@ export class ParticleVisualizer extends BaseVisualizer {
 
   draw(ctx: CanvasRenderingContext2D, data: VisualizationData): void {
     const { width, height, frequencyData, timeDomainData } = data;
+    // Validate dimensions before drawing
+    if (!this.isValidDimensions(width, height)) {
+      return;
+    }
+
 
     // Draw semi-transparent background for trail effect
     ctx.fillStyle = this.options.backgroundColor! + 'cc'; // 80% opacity
@@ -50,6 +56,9 @@ export class ParticleVisualizer extends BaseVisualizer {
       this.drawImageCover(ctx, this.backgroundImageElement, width, height);
       ctx.globalAlpha = 1;
     }
+
+    // Apply layer effects to background
+    this.applyLayerEffect(ctx, data);
 
     // Calculate audio intensity
     let bassIntensity = 0;
@@ -96,6 +105,19 @@ export class ParticleVisualizer extends BaseVisualizer {
       const angle = Math.random() * Math.PI * 2;
       const speed = (0.5 + Math.random() * 1.5) * speedFactor * (0.5 + overallIntensity);
 
+      const useCustomColors = this.options.custom?.useCustomColors as boolean;
+      let hue: number;
+
+      if (useCustomColors) {
+        // Alternate between primary and secondary color hues
+        const primaryHue = this.getHueFromColor(this.options.primaryColor!);
+        const secondaryHue = this.getHueFromColor(this.options.secondaryColor!);
+        hue = Math.random() > 0.5 ? primaryHue : secondaryHue;
+      } else {
+        // Use rainbow colors based on audio intensity
+        hue = Math.random() * 60 + (bassIntensity > 0.5 ? 0 : midIntensity > 0.5 ? 120 : 240);
+      }
+
       this.particles.push({
         x: width / 2 + offsetX + (Math.random() - 0.5) * 50,
         y: height / 2 + offsetY + (Math.random() - 0.5) * 50,
@@ -104,7 +126,7 @@ export class ParticleVisualizer extends BaseVisualizer {
         radius: baseSize + Math.random() * baseSize * bassIntensity * 3,
         life: 1,
         maxLife: 60 + Math.random() * 60,
-        hue: Math.random() * 60 + (bassIntensity > 0.5 ? 0 : midIntensity > 0.5 ? 120 : 240),
+        hue,
       });
     }
 
@@ -154,6 +176,34 @@ export class ParticleVisualizer extends BaseVisualizer {
 
     // Draw foreground
     this.drawForeground(ctx, data);
+  }
+
+  /**
+   * Extract hue value from hex color
+   */
+  private getHueFromColor(color: string): number {
+    // Simple hex to HSL conversion for hue extraction
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16) / 255;
+    const g = parseInt(hex.substr(2, 2), 16) / 255;
+    const b = parseInt(hex.substr(4, 2), 16) / 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const delta = max - min;
+
+    let hue = 0;
+    if (delta !== 0) {
+      if (max === r) {
+        hue = ((g - b) / delta + (g < b ? 6 : 0)) / 6;
+      } else if (max === g) {
+        hue = ((b - r) / delta + 2) / 6;
+      } else {
+        hue = ((r - g) / delta + 4) / 6;
+      }
+    }
+
+    return hue * 360;
   }
 
   destroy(): void {

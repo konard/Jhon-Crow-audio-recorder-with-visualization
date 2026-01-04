@@ -19,6 +19,9 @@ import {
   GlowWaveformVisualizer,
   VUMeterVisualizer,
   SpectrogramVisualizer,
+  SpiralWaveformVisualizer,
+  RadialBarsVisualizer,
+  FrequencyRingsVisualizer,
 } from './visualizers';
 
 /**
@@ -33,6 +36,9 @@ const BUILT_IN_VISUALIZERS: Record<string, new (options?: VisualizerOptions) => 
   'glow-waveform': GlowWaveformVisualizer,
   'vu-meter': VUMeterVisualizer,
   spectrogram: SpectrogramVisualizer,
+  'spiral-waveform': SpiralWaveformVisualizer,
+  'radial-bars': RadialBarsVisualizer,
+  'frequency-rings': FrequencyRingsVisualizer,
 };
 
 /**

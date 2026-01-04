@@ -747,6 +747,159 @@
       background: var(--color-primary);
       color: #000;
     }
+    /* Modal styles */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: var(--color-bg-secondary);
+      border-radius: var(--radius-lg);
+      max-width: 600px;
+      width: 90%;
+      max-height: 90vh;
+      overflow: auto;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--color-border);
+    }
+
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      color: var(--color-text-primary);
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--color-text-primary);
+      font-size: 28px;
+      cursor: pointer;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .cropper-container {
+      position: relative;
+      width: 100%;
+      height: 400px;
+      background: #000;
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #cropperCanvas {
+      position: absolute;
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    .cropper-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    .cropper-circle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      border: 2px solid var(--color-primary);
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 255, 136, 0.3);
+      pointer-events: none;
+    }
+
+    .cropper-controls {
+      margin-top: 20px;
+    }
+
+    .cropper-controls label {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .cropper-controls input[type="range"] {
+      width: 100%;
+    }
+
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* Modal-specific button styles - use existing CSS variables */
+    .modal .btn {
+      padding: 10px 20px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-surface);
+      color: var(--color-text-primary);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all var(--transition-fast);
+    }
+
+    .modal .btn:hover {
+      background: var(--color-surface-hover);
+      border-color: var(--color-primary);
+    }
+
+    .modal .btn-primary {
+      background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+      color: #000;
+      border: none;
+    }
+
+    .modal .btn-primary:hover {
+      opacity: 0.9;
+      box-shadow: 0 2px 8px rgba(0, 255, 136, 0.3);
+    }
   </style>
 </head>
 <body>
@@ -802,6 +955,9 @@
           <button id="convertBtn" class="btn-info" disabled data-tooltip="Convert selected audio file to video with visualization" aria-label="Convert audio to video">
             <span>Convert to Video</span>
           </button>
+          <button id="cancelConvertBtn" class="btn-danger" style="display: none;" data-tooltip="Cancel video conversion" aria-label="Cancel conversion">
+            <span>Cancel Conversion</span>
+          </button>
         </div>
         <div class="progress-bar" style="display: none;" role="progressbar" aria-valuemin="0" aria-valuemax="100">
           <div class="progress-bar-fill" id="progressFill"></div>
@@ -825,6 +981,9 @@
             <option value="glow-waveform">Glow Waveform - Modern Effect</option>
             <option value="vu-meter">VU Meter - Professional Style</option>
             <option value="spectrogram">Spectrogram - Frequency Waterfall</option>
+            <option value="spiral-waveform">Spiral Waveform - Rotating Pattern</option>
+            <option value="radial-bars">Radial Bars - Circular Analyzer</option>
+            <option value="frequency-rings">Frequency Rings - Concentric Pulses</option>
           </select>
         </label>
         <label>
@@ -873,6 +1032,35 @@
         <label style="flex-direction: row; align-items: center;">
           <input type="checkbox" id="mirror" aria-label="Enable mirror mode"> Mirror Visualization
         </label>
+        <label style="flex-direction: row; align-items: center;">
+          <input type="checkbox" id="useCustomColors" aria-label="Use custom colors"> Use Custom Colors (Primary/Secondary)
+        </label>
+      </div>
+      <div class="option-group" id="centerImageControls" style="display: none;">
+        <label>
+          Center Image (for Circular visualizer)
+          <input type="file" id="centerImage" accept="image/*" aria-label="Upload center image">
+        </label>
+        <label>
+          Center Image Zoom
+          <input type="range" id="centerImageZoom" min="50" max="300" value="100" step="5">
+          <span id="centerImageZoomValue">100%</span>
+        </label>
+      </div>
+      <div class="option-group" id="centerImagePositionControls" style="display: none;">
+        <label>
+          Center Image X Offset
+          <input type="range" id="centerImageOffsetX" min="-100" max="100" value="0">
+          <span id="centerImageOffsetXValue">0px</span>
+        </label>
+        <label>
+          Center Image Y Offset
+          <input type="range" id="centerImageOffsetY" min="-100" max="100" value="0">
+          <span id="centerImageOffsetYValue">0px</span>
+        </label>
+        <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
+          Tip: Hold Shift and drag on canvas to move center image
+        </p>
       </div>
       <div class="option-group">
         <label>
@@ -893,11 +1081,61 @@
           <span id="offsetYValue">0px</span>
         </label>
       </div>
+      <div class="option-group">
+        <label>
+          Layer Effect
+          <select id="layerEffect" aria-label="Select layer effect">
+            <option value="none" selected>None</option>
+            <option value="blur">Blur</option>
+            <option value="brightness">Brightness</option>
+            <option value="contrast">Contrast</option>
+            <option value="grayscale">Grayscale</option>
+            <option value="invert">Invert</option>
+            <option value="sepia">Sepia</option>
+            <option value="saturate">Saturate</option>
+            <option value="hue-rotate">Hue Rotate</option>
+          </select>
+        </label>
+        <label>
+          Effect Intensity
+          <input type="range" id="layerEffectIntensity" min="0" max="100" value="50">
+          <span id="layerEffectIntensityValue">50%</span>
+        </label>
+      </div>
     </div>
 
     <div class="recordings" id="recordings">
       <h3>Recordings</h3>
       <div id="recordingsList"></div>
+    </div>
+  </div>
+
+  <!-- Image Cropper Modal -->
+  <div id="imageCropperModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Crop Center Image</h3>
+        <button id="closeCropperBtn" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="cropper-container">
+          <canvas id="cropperCanvas"></canvas>
+          <div class="cropper-overlay">
+            <div id="cropperCircle" class="cropper-circle"></div>
+          </div>
+        </div>
+        <div class="cropper-controls">
+          <label>
+            Zoom (10% = zoom out max, 100% = original, 300% = zoom in)
+            <input type="range" id="cropperZoom" min="10" max="300" value="100" step="1">
+            <span id="cropperZoomValue">100%</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelCropBtn" class="btn">Cancel</button>
+        <button id="applyCropBtn" class="btn btn-primary">Apply</button>
+      </div>
     </div>
   </div>
 
@@ -948,12 +1186,26 @@
       const recordingsList = document.getElementById('recordingsList');
       const audioFile = document.getElementById('audioFile');
       const convertBtn = document.getElementById('convertBtn');
+      const cancelConvertBtn = document.getElementById('cancelConvertBtn');
       const progressFill = document.getElementById('progressFill');
       const videoQuality = document.getElementById('videoQuality');
       const bgSizeMode = document.getElementById('bgSizeMode');
       const customSizeControls = document.getElementById('customSizeControls');
       const bgCustomWidth = document.getElementById('bgCustomWidth');
       const bgCustomHeight = document.getElementById('bgCustomHeight');
+      const layerEffect = document.getElementById('layerEffect');
+      const layerEffectIntensity = document.getElementById('layerEffectIntensity');
+      const layerEffectIntensityValue = document.getElementById('layerEffectIntensityValue');
+      const useCustomColors = document.getElementById('useCustomColors');
+      const centerImage = document.getElementById('centerImage');
+      const centerImageControls = document.getElementById('centerImageControls');
+      const centerImagePositionControls = document.getElementById('centerImagePositionControls');
+      const centerImageZoom = document.getElementById('centerImageZoom');
+      const centerImageZoomValue = document.getElementById('centerImageZoomValue');
+      const centerImageOffsetX = document.getElementById('centerImageOffsetX');
+      const centerImageOffsetXValue = document.getElementById('centerImageOffsetXValue');
+      const centerImageOffsetY = document.getElementById('centerImageOffsetY');
+      const centerImageOffsetYValue = document.getElementById('centerImageOffsetYValue');
 
       // Settings persistence
       const SETTINGS_KEY = 'audio-recorder-settings';
@@ -974,6 +1226,13 @@
         backgroundWidth: 800,
         backgroundHeight: 400,
         videoQuality: '1080p',
+        layerEffect: 'none',
+        layerEffectIntensity: 50,
+        useCustomColors: false,
+        centerImage: null,
+        centerImageZoom: 100,
+        centerImageOffsetX: 0,
+        centerImageOffsetY: 0,
       };
 
       // Load settings from localStorage
@@ -1000,6 +1259,7 @@
 
       // Track background image URL
       let currentBackgroundImageUrl = null;
+      let currentCenterImageUrl = null;
 
       // Get current settings from UI
       function getCurrentSettings() {
@@ -1018,6 +1278,13 @@
           backgroundWidth: parseInt(bgCustomWidth.value),
           backgroundHeight: parseInt(bgCustomHeight.value),
           videoQuality: videoQuality.value,
+          layerEffect: layerEffect.value,
+          layerEffectIntensity: parseInt(layerEffectIntensity.value),
+          useCustomColors: useCustomColors.checked,
+          centerImage: currentCenterImageUrl,
+          centerImageZoom: parseInt(centerImageZoom.value),
+          centerImageOffsetX: parseInt(centerImageOffsetX.value),
+          centerImageOffsetY: parseInt(centerImageOffsetY.value),
         };
       }
 
@@ -1040,13 +1307,40 @@
         bgCustomWidth.value = settings.backgroundWidth || 800;
         bgCustomHeight.value = settings.backgroundHeight || 400;
         videoQuality.value = settings.videoQuality || '1080p';
+        layerEffect.value = settings.layerEffect || 'none';
+        layerEffectIntensity.value = settings.layerEffectIntensity || 50;
+        layerEffectIntensityValue.textContent = (settings.layerEffectIntensity || 50) + '%';
 
         // Show/hide custom size controls based on mode
         customSizeControls.style.display = settings.backgroundSizeMode === 'custom' ? 'grid' : 'none';
 
+        // Use custom colors setting
+        useCustomColors.checked = settings.useCustomColors || false;
+
+        // Show/hide center image controls based on visualizer
+        const isCircular = settings.visualizer === 'circular';
+        centerImageControls.style.display = isCircular ? 'grid' : 'none';
+
+        // Show center image position controls only if circular and has center image
+        const hasCenterImage = settings.centerImage || currentCenterImageUrl;
+        centerImagePositionControls.style.display = (isCircular && hasCenterImage) ? 'grid' : 'none';
+
+        // Center image zoom and offset settings
+        centerImageZoom.value = settings.centerImageZoom || 100;
+        centerImageZoomValue.textContent = (settings.centerImageZoom || 100) + '%';
+        centerImageOffsetX.value = settings.centerImageOffsetX || 0;
+        centerImageOffsetXValue.textContent = (settings.centerImageOffsetX || 0) + 'px';
+        centerImageOffsetY.value = settings.centerImageOffsetY || 0;
+        centerImageOffsetYValue.textContent = (settings.centerImageOffsetY || 0) + 'px';
+
         // Restore background image if saved
         if (settings.backgroundImage) {
           currentBackgroundImageUrl = settings.backgroundImage;
+        }
+
+        // Restore center image if saved
+        if (settings.centerImage) {
+          currentCenterImageUrl = settings.centerImage;
         }
       }
 
@@ -1074,11 +1368,34 @@
         visualizationAlpha: savedSettings.visualizationAlpha,
         offsetX: savedSettings.offsetX,
         offsetY: savedSettings.offsetY,
+        layerEffect: savedSettings.layerEffect || 'none',
+        layerEffectIntensity: savedSettings.layerEffectIntensity || 50,
+        backgroundSizeMode: savedSettings.backgroundSizeMode || 'cover',
+        backgroundWidth: savedSettings.backgroundWidth,
+        backgroundHeight: savedSettings.backgroundHeight,
+        custom: {
+          useColorGradient: savedSettings.useCustomColors || false,
+          useCustomColors: savedSettings.useCustomColors || false,
+        },
       };
 
       // Add background image if it was saved
       if (savedSettings.backgroundImage) {
         visualizerOptions.backgroundImage = savedSettings.backgroundImage;
+      }
+
+      // Add center image and its settings if it was saved (for circular visualizer)
+      if (savedSettings.centerImage) {
+        visualizerOptions.custom.centerImage = savedSettings.centerImage;
+        visualizerOptions.custom.centerImageZoom = (savedSettings.centerImageZoom || 100) / 100;
+        visualizerOptions.custom.centerImageOffsetX = savedSettings.centerImageOffsetX || 0;
+        visualizerOptions.custom.centerImageOffsetY = savedSettings.centerImageOffsetY || 0;
+      }
+
+      // Add custom color scheme/fillStyle if using custom colors (for spectrogram/spectrum-gradient)
+      if (savedSettings.useCustomColors) {
+        visualizerOptions.custom.colorScheme = 'custom';
+        visualizerOptions.custom.fillStyle = 'custom';
       }
 
       const recorder = new AudioRecorder({
@@ -1088,6 +1405,12 @@
         visualizer: savedSettings.visualizer,
         visualizerOptions,
         debug: true,
+      });
+
+      // Wait for recorder to be fully initialized then draw initial frame
+      recorder.ready().then(() => {
+        // Draw initial preview frame to show the visualization settings
+        recorder.showDemoVisualization(100);
       });
 
       // Initialize converter
@@ -1242,13 +1565,49 @@
       }
 
       // Visualizer change
-      visualizerSelect.addEventListener('change', () => {
-        recorder.setVisualizer(visualizerSelect.value, getCurrentOptions());
+      visualizerSelect.addEventListener('change', async () => {
+        // Temporarily stop visualization to avoid drawing during visualizer switch
+        const wasVisualizationActive = recorder.isVisualizationActive;
+        if (wasVisualizationActive) {
+          recorder.stopVisualization();
+        }
+
+        try {
+          await recorder.setVisualizer(visualizerSelect.value, getCurrentOptions());
+        } finally {
+          // Resume visualization if it was active
+          if (wasVisualizationActive && recorder.sourceType) {
+            recorder.resumeVisualization();
+          }
+        }
+
         saveSettings(getCurrentSettings());
+        // Show/hide center image controls based on visualizer type
+        const isCircular = visualizerSelect.value === 'circular';
+        centerImageControls.style.display = isCircular ? 'grid' : 'none';
+        // Show center image position controls only if circular and has center image
+        centerImagePositionControls.style.display = (isCircular && currentCenterImageUrl) ? 'grid' : 'none';
+        updatePreview();
       });
 
       // Get current options
       function getCurrentOptions() {
+        const isCustomColors = useCustomColors.checked;
+        const customOptions = {
+          // For circular visualizer
+          useColorGradient: isCustomColors,
+          // For particles visualizer
+          useCustomColors: isCustomColors,
+        };
+
+        // Only set colorScheme when custom colors is enabled (for spectrogram)
+        // Don't set it to undefined as it would override the visualizer's default
+        if (isCustomColors) {
+          customOptions.colorScheme = 'custom';
+          // For spectrum-gradient visualizer - also set fillStyle
+          customOptions.fillStyle = 'custom';
+        }
+
         const options = {
           primaryColor: primaryColor.value,
           secondaryColor: secondaryColor.value,
@@ -1259,6 +1618,9 @@
           offsetX: parseInt(offsetX.value),
           offsetY: parseInt(offsetY.value),
           backgroundSizeMode: bgSizeMode.value,
+          layerEffect: layerEffect.value,
+          layerEffectIntensity: parseInt(layerEffectIntensity.value),
+          custom: customOptions,
         };
         // Include background image if one is set
         if (currentBackgroundImageUrl) {
@@ -1269,7 +1631,44 @@
           options.backgroundWidth = parseInt(bgCustomWidth.value);
           options.backgroundHeight = parseInt(bgCustomHeight.value);
         }
+        // Include center image if one is set (for circular visualizer)
+        if (currentCenterImageUrl) {
+          options.custom.centerImage = currentCenterImageUrl;
+          options.custom.centerImageZoom = parseInt(centerImageZoom.value) / 100;
+          options.custom.centerImageOffsetX = parseInt(centerImageOffsetX.value);
+          options.custom.centerImageOffsetY = parseInt(centerImageOffsetY.value);
+        }
         return options;
+      }
+
+      // Helper function to show preview after settings change
+      function updatePreview() {
+        // Show demo visualization if no audio source is active
+        if (!recorder.sourceType) {
+          recorder.showDemoVisualization(500);
+        }
+      }
+
+      // Function to update slider colors based on current primary/secondary colors
+      function updateSliderColors() {
+        const primary = primaryColor.value;
+        const secondary = secondaryColor.value;
+
+        // Update CSS custom properties for sliders
+        document.documentElement.style.setProperty('--color-primary', primary);
+        document.documentElement.style.setProperty('--color-secondary', secondary);
+
+        // Update all range sliders to use the gradient
+        const rangeSliders = document.querySelectorAll('.option-group input[type="range"]');
+        rangeSliders.forEach(slider => {
+          slider.style.background = `linear-gradient(to right, ${primary} 0%, ${secondary} 100%)`;
+        });
+
+        // Update checkboxes accent color
+        const checkboxes = document.querySelectorAll('.option-group input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+          checkbox.style.accentColor = primary;
+        });
       }
 
       // Options change handlers
@@ -1277,8 +1676,16 @@
         el.addEventListener('input', () => {
           recorder.setVisualizerOptions(getCurrentOptions());
           saveSettings(getCurrentSettings());
+          // Update slider colors when colors change
+          if (el === primaryColor || el === secondaryColor) {
+            updateSliderColors();
+          }
+          updatePreview();
         });
       });
+
+      // Initialize slider colors on load
+      updateSliderColors();
 
       // Bar Count change handler with demo visualization and value display
       const barCountValue = document.getElementById('barCountValue');
@@ -1287,11 +1694,7 @@
         barCountValue.textContent = newBarCount;
         recorder.setVisualizerOptions({ barCount: newBarCount });
         saveSettings(getCurrentSettings());
-
-        // Show demo visualization if no audio source is active
-        if (!recorder.sourceType) {
-          recorder.showDemoVisualization(1000);
-        }
+        updatePreview();
       });
 
       // Visualization alpha handler with display update
@@ -1300,6 +1703,7 @@
         alphaValue.textContent = Math.round(alpha * 100) + '%';
         recorder.setVisualizerOptions({ visualizationAlpha: alpha });
         saveSettings(getCurrentSettings());
+        updatePreview();
       });
 
       // Offset X handler with display update
@@ -1308,6 +1712,7 @@
         offsetXValue.textContent = x + 'px';
         recorder.setVisualizerOptions({ offsetX: x });
         saveSettings(getCurrentSettings());
+        updatePreview();
       });
 
       // Offset Y handler with display update
@@ -1316,6 +1721,23 @@
         offsetYValue.textContent = y + 'px';
         recorder.setVisualizerOptions({ offsetY: y });
         saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Layer effect handler
+      layerEffect.addEventListener('change', () => {
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Layer effect intensity handler with display update
+      layerEffectIntensity.addEventListener('input', () => {
+        const intensity = parseInt(layerEffectIntensity.value);
+        layerEffectIntensityValue.textContent = intensity + '%';
+        recorder.setVisualizerOptions({ layerEffectIntensity: intensity });
+        saveSettings(getCurrentSettings());
+        updatePreview();
       });
 
       // Background image
@@ -1331,6 +1753,7 @@
             await recorder.setVisualizerOptions({ backgroundImage: dataUrl });
             // Save settings with the new background image
             saveSettings(getCurrentSettings());
+            updatePreview();
           };
           reader.readAsDataURL(file);
         }
@@ -1342,6 +1765,7 @@
         customSizeControls.style.display = mode === 'custom' ? 'grid' : 'none';
         recorder.setVisualizerOptions(getCurrentOptions());
         saveSettings(getCurrentSettings());
+        updatePreview();
       });
 
       // Custom background size handlers
@@ -1349,6 +1773,7 @@
         if (bgSizeMode.value === 'custom') {
           recorder.setVisualizerOptions(getCurrentOptions());
           saveSettings(getCurrentSettings());
+          updatePreview();
         }
       });
 
@@ -1356,7 +1781,284 @@
         if (bgSizeMode.value === 'custom') {
           recorder.setVisualizerOptions(getCurrentOptions());
           saveSettings(getCurrentSettings());
+          updatePreview();
         }
+      });
+
+      // Use custom colors checkbox handler
+      useCustomColors.addEventListener('change', () => {
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Image Cropper functionality
+      const cropperModal = document.getElementById('imageCropperModal');
+      const cropperCanvas = document.getElementById('cropperCanvas');
+      const cropperCtx = cropperCanvas.getContext('2d');
+      const cropperZoom = document.getElementById('cropperZoom');
+      const cropperZoomValue = document.getElementById('cropperZoomValue');
+      const closeCropperBtn = document.getElementById('closeCropperBtn');
+      const cancelCropBtn = document.getElementById('cancelCropBtn');
+      const applyCropBtn = document.getElementById('applyCropBtn');
+
+      let cropperImage = null;
+      let cropperScale = 1;
+      let cropperOffsetX = 0;
+      let cropperOffsetY = 0;
+      let isDragging = false;
+      let dragStartX = 0;
+      let dragStartY = 0;
+      let dragStartOffsetX = 0;
+      let dragStartOffsetY = 0;
+
+      function openCropper(imageDataUrl) {
+        const img = new Image();
+        img.onload = () => {
+          cropperImage = img;
+          cropperScale = 1;
+          cropperOffsetX = 0;
+          cropperOffsetY = 0;
+          cropperZoom.value = 100;
+          cropperZoomValue.textContent = '100%';
+
+          // Set canvas size to fit container (400x400)
+          cropperCanvas.width = 400;
+          cropperCanvas.height = 400;
+
+          cropperModal.style.display = 'flex';
+          drawCropper();
+        };
+        img.src = imageDataUrl;
+      }
+
+      function closeCropper() {
+        cropperModal.style.display = 'none';
+        cropperImage = null;
+        cropperOffsetX = 0;
+        cropperOffsetY = 0;
+        isDragging = false;
+        // Reset file input
+        centerImage.value = '';
+      }
+
+      function drawCropper() {
+        if (!cropperImage) return;
+
+        cropperCtx.clearRect(0, 0, cropperCanvas.width, cropperCanvas.height);
+        cropperCtx.fillStyle = '#000';
+        cropperCtx.fillRect(0, 0, cropperCanvas.width, cropperCanvas.height);
+
+        // Calculate scaled dimensions
+        const scale = cropperScale;
+        const imgWidth = cropperImage.width * scale;
+        const imgHeight = cropperImage.height * scale;
+
+        // Center the image with offset for dragging
+        const x = (cropperCanvas.width - imgWidth) / 2 + cropperOffsetX;
+        const y = (cropperCanvas.height - imgHeight) / 2 + cropperOffsetY;
+
+        cropperCtx.drawImage(cropperImage, x, y, imgWidth, imgHeight);
+      }
+
+      // Mouse drag handlers for cropper
+      cropperCanvas.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        dragStartOffsetX = cropperOffsetX;
+        dragStartOffsetY = cropperOffsetY;
+        cropperCanvas.style.cursor = 'grabbing';
+      });
+
+      cropperCanvas.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - dragStartX;
+        const dy = e.clientY - dragStartY;
+        cropperOffsetX = dragStartOffsetX + dx;
+        cropperOffsetY = dragStartOffsetY + dy;
+        drawCropper();
+      });
+
+      cropperCanvas.addEventListener('mouseup', () => {
+        isDragging = false;
+        cropperCanvas.style.cursor = 'grab';
+      });
+
+      cropperCanvas.addEventListener('mouseleave', () => {
+        if (isDragging) {
+          isDragging = false;
+          cropperCanvas.style.cursor = 'grab';
+        }
+      });
+
+      // Set initial cursor style
+      cropperCanvas.style.cursor = 'grab';
+
+      // Touch support for mobile
+      cropperCanvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          isDragging = true;
+          dragStartX = e.touches[0].clientX;
+          dragStartY = e.touches[0].clientY;
+          dragStartOffsetX = cropperOffsetX;
+          dragStartOffsetY = cropperOffsetY;
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      cropperCanvas.addEventListener('touchmove', (e) => {
+        if (!isDragging || e.touches.length !== 1) return;
+        const dx = e.touches[0].clientX - dragStartX;
+        const dy = e.touches[0].clientY - dragStartY;
+        cropperOffsetX = dragStartOffsetX + dx;
+        cropperOffsetY = dragStartOffsetY + dy;
+        drawCropper();
+        e.preventDefault();
+      }, { passive: false });
+
+      cropperCanvas.addEventListener('touchend', () => {
+        isDragging = false;
+      });
+
+      function applyCrop() {
+        if (!cropperImage) return;
+
+        // Create a temporary canvas for the cropped result
+        const resultCanvas = document.createElement('canvas');
+        const resultCtx = resultCanvas.getContext('2d');
+        const cropSize = 200; // Size of the circular crop
+
+        resultCanvas.width = cropSize;
+        resultCanvas.height = cropSize;
+
+        // Calculate the source rectangle from the cropper canvas
+        const centerX = cropperCanvas.width / 2;
+        const centerY = cropperCanvas.height / 2;
+        const cropRadius = 100; // Half of cropSize
+
+        // Get the visible portion parameters (including drag offset)
+        const scale = cropperScale;
+        const imgWidth = cropperImage.width * scale;
+        const imgHeight = cropperImage.height * scale;
+        const imgX = (cropperCanvas.width - imgWidth) / 2 + cropperOffsetX;
+        const imgY = (cropperCanvas.height - imgHeight) / 2 + cropperOffsetY;
+
+        // Calculate source coordinates on the original image
+        const srcCenterX = (centerX - imgX) / scale;
+        const srcCenterY = (centerY - imgY) / scale;
+        const srcRadius = cropRadius / scale;
+
+        // Draw the cropped circular image
+        resultCtx.save();
+        resultCtx.beginPath();
+        resultCtx.arc(cropSize / 2, cropSize / 2, cropSize / 2, 0, Math.PI * 2);
+        resultCtx.clip();
+
+        // Draw image centered in the circle
+        resultCtx.drawImage(
+          cropperImage,
+          srcCenterX - srcRadius,
+          srcCenterY - srcRadius,
+          srcRadius * 2,
+          srcRadius * 2,
+          0,
+          0,
+          cropSize,
+          cropSize
+        );
+        resultCtx.restore();
+
+        // Convert to data URL and save
+        const croppedDataUrl = resultCanvas.toDataURL('image/png');
+        currentCenterImageUrl = croppedDataUrl;
+        recorder.setVisualizerOptions({ custom: { centerImage: croppedDataUrl } });
+        saveSettings(getCurrentSettings());
+
+        // Show center image position controls since we now have a center image
+        centerImagePositionControls.style.display = 'grid';
+
+        closeCropper();
+        updatePreview();
+      }
+
+      // Cropper zoom handler
+      cropperZoom.addEventListener('input', () => {
+        const zoomPercent = parseInt(cropperZoom.value);
+        cropperZoomValue.textContent = zoomPercent + '%';
+        cropperScale = zoomPercent / 100;
+        drawCropper();
+      });
+
+      // Cropper button handlers
+      closeCropperBtn.addEventListener('click', closeCropper);
+      cancelCropBtn.addEventListener('click', closeCropper);
+      applyCropBtn.addEventListener('click', applyCrop);
+
+      // Close modal on backdrop click
+      cropperModal.addEventListener('click', (e) => {
+        if (e.target === cropperModal) {
+          closeCropper();
+        }
+      });
+
+      // Center image upload handler (for circular visualizer)
+      centerImage.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = async (event) => {
+            const dataUrl = event.target.result;
+            // Open cropper modal instead of applying directly
+            openCropper(dataUrl);
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+      // Center image zoom handler
+      centerImageZoom.addEventListener('input', () => {
+        const zoomValue = parseInt(centerImageZoom.value);
+        centerImageZoomValue.textContent = zoomValue + '%';
+        recorder.setVisualizerOptions({
+          custom: {
+            centerImageZoom: zoomValue / 100,
+          },
+        });
+        updatePreview();
+      });
+      centerImageZoom.addEventListener('change', () => {
+        saveSettings(getCurrentSettings());
+      });
+
+      // Center image offset X handler
+      centerImageOffsetX.addEventListener('input', () => {
+        const offsetXVal = parseInt(centerImageOffsetX.value);
+        centerImageOffsetXValue.textContent = offsetXVal + 'px';
+        recorder.setVisualizerOptions({
+          custom: {
+            centerImageOffsetX: offsetXVal,
+          },
+        });
+        updatePreview();
+      });
+      centerImageOffsetX.addEventListener('change', () => {
+        saveSettings(getCurrentSettings());
+      });
+
+      // Center image offset Y handler
+      centerImageOffsetY.addEventListener('input', () => {
+        const offsetYVal = parseInt(centerImageOffsetY.value);
+        centerImageOffsetYValue.textContent = offsetYVal + 'px';
+        recorder.setVisualizerOptions({
+          custom: {
+            centerImageOffsetY: offsetYVal,
+          },
+        });
+        updatePreview();
+      });
+      centerImageOffsetY.addEventListener('change', () => {
+        saveSettings(getCurrentSettings());
       });
 
       // Update progress bar with accessibility
@@ -1378,6 +2080,8 @@
         if (!file) return;
 
         convertBtn.disabled = true;
+        convertBtn.style.display = 'none';
+        cancelConvertBtn.style.display = 'inline-flex';
         progressBar.style.display = 'block';
         updateStatus('Converting audio to video...', 'recording');
 
@@ -1412,10 +2116,16 @@
           updateStatus('Conversion complete!', 'ready');
           addRecording(blob);
         } catch (error) {
-          updateStatus('Error: ' + error.message, 'error');
+          if (error.message.includes('cancelled')) {
+            updateStatus('Conversion cancelled', 'ready');
+          } else {
+            updateStatus('Error: ' + error.message, 'error');
+          }
           console.error(error);
         } finally {
           convertBtn.disabled = false;
+          convertBtn.style.display = 'inline-flex';
+          cancelConvertBtn.style.display = 'none';
           progressBar.style.display = 'none';
           updateProgress(0);
 
@@ -1426,10 +2136,160 @@
         }
       });
 
-      // Add mouse wheel support for all range sliders
+      // Cancel conversion
+      cancelConvertBtn.addEventListener('click', () => {
+        converter.cancel();
+        updateStatus('Cancelling conversion...', 'ready');
+      });
+
+      // Canvas drag support for adjusting visualization position
+      let canvasDragging = false;
+      let canvasDragStartX = 0;
+      let canvasDragStartY = 0;
+      let canvasDragStartOffsetX = 0;
+      let canvasDragStartOffsetY = 0;
+      let isDraggingCenterImage = false; // Track if we're dragging center image (Shift key)
+
+      // Mouse drag handlers for canvas
+      canvas.addEventListener('mousedown', (e) => {
+        canvasDragging = true;
+        canvasDragStartX = e.clientX;
+        canvasDragStartY = e.clientY;
+
+        // Check if Shift key is held and we're in circular mode with center image
+        isDraggingCenterImage = e.shiftKey && visualizerSelect.value === 'circular' && currentCenterImageUrl;
+
+        if (isDraggingCenterImage) {
+          canvasDragStartOffsetX = parseInt(centerImageOffsetX.value);
+          canvasDragStartOffsetY = parseInt(centerImageOffsetY.value);
+        } else {
+          canvasDragStartOffsetX = parseInt(offsetX.value);
+          canvasDragStartOffsetY = parseInt(offsetY.value);
+        }
+        canvas.style.cursor = 'grabbing';
+      });
+
+      canvas.addEventListener('mousemove', (e) => {
+        if (!canvasDragging) return;
+        const dx = e.clientX - canvasDragStartX;
+        const dy = e.clientY - canvasDragStartY;
+
+        if (isDraggingCenterImage) {
+          // Drag center image position
+          const newCenterOffsetX = Math.max(-100, Math.min(100, canvasDragStartOffsetX + dx));
+          const newCenterOffsetY = Math.max(-100, Math.min(100, canvasDragStartOffsetY + dy));
+
+          // Update sliders
+          centerImageOffsetX.value = newCenterOffsetX;
+          centerImageOffsetY.value = newCenterOffsetY;
+          centerImageOffsetXValue.textContent = newCenterOffsetX + 'px';
+          centerImageOffsetYValue.textContent = newCenterOffsetY + 'px';
+
+          // Update visualizer
+          recorder.setVisualizerOptions({
+            custom: {
+              centerImageOffsetX: newCenterOffsetX,
+              centerImageOffsetY: newCenterOffsetY,
+            },
+          });
+        } else {
+          // Drag visualization position
+          const newOffsetX = Math.max(-200, Math.min(200, canvasDragStartOffsetX + dx));
+          const newOffsetY = Math.max(-200, Math.min(200, canvasDragStartOffsetY + dy));
+
+          // Update sliders
+          offsetX.value = newOffsetX;
+          offsetY.value = newOffsetY;
+          offsetXValue.textContent = newOffsetX + 'px';
+          offsetYValue.textContent = newOffsetY + 'px';
+
+          // Update visualizer
+          recorder.setVisualizerOptions({ offsetX: newOffsetX, offsetY: newOffsetY });
+        }
+        updatePreview();
+      });
+
+      canvas.addEventListener('mouseup', () => {
+        if (canvasDragging) {
+          canvasDragging = false;
+          isDraggingCenterImage = false;
+          canvas.style.cursor = 'grab';
+          saveSettings(getCurrentSettings());
+        }
+      });
+
+      canvas.addEventListener('mouseleave', () => {
+        if (canvasDragging) {
+          canvasDragging = false;
+          isDraggingCenterImage = false;
+          canvas.style.cursor = 'grab';
+          saveSettings(getCurrentSettings());
+        }
+      });
+
+      // Set initial cursor for canvas
+      canvas.style.cursor = 'grab';
+
+      // Touch drag handlers for canvas (mobile support)
+      canvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          canvasDragging = true;
+          canvasDragStartX = e.touches[0].clientX;
+          canvasDragStartY = e.touches[0].clientY;
+          canvasDragStartOffsetX = parseInt(offsetX.value);
+          canvasDragStartOffsetY = parseInt(offsetY.value);
+        }
+      }, { passive: true });
+
+      canvas.addEventListener('touchmove', (e) => {
+        if (!canvasDragging) return;
+        const dx = e.touches[0].clientX - canvasDragStartX;
+        const dy = e.touches[0].clientY - canvasDragStartY;
+        const newOffsetX = Math.max(-200, Math.min(200, canvasDragStartOffsetX + dx));
+        const newOffsetY = Math.max(-200, Math.min(200, canvasDragStartOffsetY + dy));
+
+        // Update sliders
+        offsetX.value = newOffsetX;
+        offsetY.value = newOffsetY;
+        offsetXValue.textContent = newOffsetX + 'px';
+        offsetYValue.textContent = newOffsetY + 'px';
+
+        // Update visualizer
+        recorder.setVisualizerOptions({ offsetX: newOffsetX, offsetY: newOffsetY });
+        updatePreview();
+      }, { passive: true });
+
+      canvas.addEventListener('touchend', () => {
+        if (canvasDragging) {
+          canvasDragging = false;
+          saveSettings(getCurrentSettings());
+        }
+      });
+
+      // Add mouse wheel support for all range sliders (only when focused/clicked)
       const rangeInputs = document.querySelectorAll('input[type="range"]');
       rangeInputs.forEach(slider => {
+        // Track whether slider is active (clicked or focused)
+        let isSliderActive = false;
+
+        slider.addEventListener('focus', () => {
+          isSliderActive = true;
+        });
+
+        slider.addEventListener('blur', () => {
+          isSliderActive = false;
+        });
+
+        slider.addEventListener('mousedown', () => {
+          isSliderActive = true;
+        });
+
         slider.addEventListener('wheel', (e) => {
+          // Only handle wheel events when slider is focused/active
+          if (!isSliderActive) {
+            return; // Don't prevent default, let page scroll normally
+          }
+
           e.preventDefault();
           const step = parseFloat(slider.step) || 1;
           const delta = e.deltaY < 0 ? step : -step;
@@ -1515,7 +2375,10 @@ R - Start/Stop Recording
   5=Spectrum Gradient, 6=Glow Waveform, 7=VU Meter, 8=Spectrogram
 M - Toggle Mirror Mode
 ↑/↓ - Adjust Bar Count
-? or / - Show this help`);
+? or / - Show this help
+
+Mouse:
+Drag on canvas - Move visualization position`);
         }
       });
 

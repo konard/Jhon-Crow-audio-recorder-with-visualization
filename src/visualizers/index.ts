@@ -7,3 +7,6 @@ export { SpectrumGradientVisualizer } from './SpectrumGradientVisualizer';
 export { GlowWaveformVisualizer } from './GlowWaveformVisualizer';
 export { VUMeterVisualizer } from './VUMeterVisualizer';
 export { SpectrogramVisualizer } from './SpectrogramVisualizer';
+export { SpiralWaveformVisualizer } from './SpiralWaveformVisualizer';
+export { RadialBarsVisualizer } from './RadialBarsVisualizer';
+export { FrequencyRingsVisualizer } from './FrequencyRingsVisualizer';

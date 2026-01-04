@@ -19,7 +19,7 @@ export class SpectrogramVisualizer extends BaseVisualizer {
       ...options,
       custom: {
         scrollSpeed: 1, // Pixels to scroll per frame
-        colorScheme: 'rainbow', // 'rainbow', 'heat', 'cool', 'grayscale'
+        colorScheme: 'rainbow', // 'rainbow', 'heat', 'cool', 'grayscale', 'custom'
         orientation: 'vertical', // 'vertical' (time flows down), 'horizontal' (time flows left)
         frequencyRange: 'full', // 'full', 'bass', 'mid', 'high'
         ...options.custom,
@@ -38,6 +38,11 @@ export class SpectrogramVisualizer extends BaseVisualizer {
   draw(ctx: CanvasRenderingContext2D, data: VisualizationData): void {
     const { width, height, frequencyData } = data;
 
+    // Validate dimensions before drawing
+    if (!this.isValidDimensions(width, height)) {
+      return;
+    }
+
     // Initialize or resize history canvas if needed
     if (!this.historyCanvas || !this.historyCtx || this.historyWidth !== width || this.historyHeight !== height) {
       this.historyWidth = width;
@@ -50,6 +55,9 @@ export class SpectrogramVisualizer extends BaseVisualizer {
 
     // Draw background
     this.drawBackground(ctx, data);
+
+    // Apply layer effects to background
+    this.applyLayerEffect(ctx, data);
 
     // Apply visualization alpha
     const visualizationAlpha = this.options.visualizationAlpha ?? 1;
@@ -75,12 +83,15 @@ export class SpectrogramVisualizer extends BaseVisualizer {
 
     const rangeLength = endIdx - startIdx;
 
-    if (this.historyCtx && this.historyCanvas) {
+    if (this.historyCtx && this.historyCanvas && width > 0 && height > 0 && scrollSpeed > 0) {
       // Scroll the history
       if (orientation === 'horizontal') {
         // Shift left
-        const imageData = this.historyCtx.getImageData(scrollSpeed, 0, width - scrollSpeed, height);
-        this.historyCtx.putImageData(imageData, 0, 0);
+        const scrollWidth = Math.min(scrollSpeed, width);
+        if (width > scrollWidth && height > 0) {
+          const imageData = this.historyCtx.getImageData(scrollWidth, 0, width - scrollWidth, height);
+          this.historyCtx.putImageData(imageData, 0, 0);
+        }
 
         // Draw new column on the right
         for (let i = 0; i < rangeLength; i++) {
@@ -90,12 +101,15 @@ export class SpectrogramVisualizer extends BaseVisualizer {
           const barHeight = Math.max(1, height / rangeLength);
 
           this.historyCtx.fillStyle = this.getColor(value, colorScheme);
-          this.historyCtx.fillRect(width - scrollSpeed, y, scrollSpeed, barHeight);
+          this.historyCtx.fillRect(width - scrollWidth, y, scrollWidth, barHeight);
         }
       } else {
         // Vertical orientation - shift up
-        const imageData = this.historyCtx.getImageData(0, scrollSpeed, width, height - scrollSpeed);
-        this.historyCtx.putImageData(imageData, 0, 0);
+        const scrollHeight = Math.min(scrollSpeed, height);
+        if (height > scrollHeight && width > 0) {
+          const imageData = this.historyCtx.getImageData(0, scrollHeight, width, height - scrollHeight);
+          this.historyCtx.putImageData(imageData, 0, 0);
+        }
 
         // Draw new row at the bottom
         for (let i = 0; i < rangeLength; i++) {
@@ -105,7 +119,7 @@ export class SpectrogramVisualizer extends BaseVisualizer {
           const barWidth = Math.max(1, width / rangeLength);
 
           this.historyCtx.fillStyle = this.getColor(value, colorScheme);
-          this.historyCtx.fillRect(x, height - scrollSpeed, barWidth, scrollSpeed);
+          this.historyCtx.fillRect(x, height - scrollHeight, barWidth, scrollHeight);
         }
       }
 
@@ -154,18 +168,48 @@ export class SpectrogramVisualizer extends BaseVisualizer {
           return `rgb(${Math.floor(t * 255)}, 255, 255)`;
         }
 
-      case 'grayscale':
+      case 'grayscale': {
         const gray = Math.floor(normalized * 255);
         return `rgb(${gray}, ${gray}, ${gray})`;
+      }
+
+      case 'custom':
+        // Use primary and secondary colors with interpolation
+        return this.interpolateColors(this.options.primaryColor!, this.options.secondaryColor!, normalized);
 
       case 'rainbow':
-      default:
+      default: {
         // Rainbow spectrum
         const hue = normalized * 270; // 0 to 270 degrees (blue to red)
         const saturation = 100;
         const lightness = 50 + normalized * 30; // Brighter with higher values
         return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+      }
     }
+  }
+
+  /**
+   * Interpolate between two hex colors
+   */
+  private interpolateColors(color1: string, color2: string, t: number): string {
+    // Parse hex colors
+    const hex1 = color1.replace('#', '');
+    const hex2 = color2.replace('#', '');
+
+    const r1 = parseInt(hex1.substr(0, 2), 16);
+    const g1 = parseInt(hex1.substr(2, 2), 16);
+    const b1 = parseInt(hex1.substr(4, 2), 16);
+
+    const r2 = parseInt(hex2.substr(0, 2), 16);
+    const g2 = parseInt(hex2.substr(2, 2), 16);
+    const b2 = parseInt(hex2.substr(4, 2), 16);
+
+    // Interpolate
+    const r = Math.floor(r1 + (r2 - r1) * t);
+    const g = Math.floor(g1 + (g2 - g1) * t);
+    const b = Math.floor(b1 + (b2 - b1) * t);
+
+    return `rgb(${r}, ${g}, ${b})`;
   }
 
   destroy(): void {

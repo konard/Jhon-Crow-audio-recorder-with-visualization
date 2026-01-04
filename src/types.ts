@@ -65,6 +65,11 @@ export interface Visualizer {
 export type BackgroundSizeMode = 'cover' | 'contain' | 'stretch' | 'tile' | 'center' | 'custom';
 
 /**
+ * Layer effect types
+ */
+export type LayerEffectType = 'none' | 'blur' | 'brightness' | 'contrast' | 'grayscale' | 'invert' | 'sepia' | 'saturate' | 'hue-rotate';
+
+/**
  * Options for visualizer configuration
  */
 export interface VisualizerOptions {
@@ -104,6 +109,10 @@ export interface VisualizerOptions {
   offsetX?: number;
   /** Vertical offset in pixels (can be negative), default: 0 - shifts visualization up/down */
   offsetY?: number;
+  /** Layer effect type applied between background and visualization */
+  layerEffect?: LayerEffectType;
+  /** Layer effect intensity (0-100), default: 50 */
+  layerEffectIntensity?: number;
   /** Custom options for specific visualizers */
   custom?: Record<string, unknown>;
 }
