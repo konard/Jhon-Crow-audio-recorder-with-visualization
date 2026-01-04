@@ -920,6 +920,80 @@
       const convertBtn = document.getElementById('convertBtn');
       const progressFill = document.getElementById('progressFill');
 
+      // Settings persistence
+      const SETTINGS_KEY = 'audio-recorder-settings';
+
+      // Default settings
+      const defaultSettings = {
+        visualizer: 'bars',
+        primaryColor: '#00ff88',
+        secondaryColor: '#0088ff',
+        backgroundColor: '#000000',
+        barCount: 64,
+        mirror: false,
+        visualizationAlpha: 1,
+        offsetX: 0,
+        offsetY: 0,
+      };
+
+      // Load settings from localStorage
+      function loadSettings() {
+        try {
+          const saved = localStorage.getItem(SETTINGS_KEY);
+          if (saved) {
+            return { ...defaultSettings, ...JSON.parse(saved) };
+          }
+        } catch (error) {
+          console.warn('Failed to load settings:', error);
+        }
+        return defaultSettings;
+      }
+
+      // Save settings to localStorage
+      function saveSettings(settings) {
+        try {
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        } catch (error) {
+          console.warn('Failed to save settings:', error);
+        }
+      }
+
+      // Get current settings from UI
+      function getCurrentSettings() {
+        return {
+          visualizer: visualizerSelect.value,
+          primaryColor: primaryColor.value,
+          secondaryColor: secondaryColor.value,
+          backgroundColor: bgColor.value,
+          barCount: parseInt(barCount.value),
+          mirror: mirror.checked,
+          visualizationAlpha: parseFloat(visualizationAlpha.value),
+          offsetX: parseInt(offsetX.value),
+          offsetY: parseInt(offsetY.value),
+        };
+      }
+
+      // Apply settings to UI
+      function applySettings(settings) {
+        visualizerSelect.value = settings.visualizer;
+        primaryColor.value = settings.primaryColor;
+        secondaryColor.value = settings.secondaryColor;
+        bgColor.value = settings.backgroundColor;
+        barCount.value = settings.barCount;
+        document.getElementById('barCountValue').textContent = settings.barCount;
+        mirror.checked = settings.mirror;
+        visualizationAlpha.value = settings.visualizationAlpha;
+        alphaValue.textContent = Math.round(settings.visualizationAlpha * 100) + '%';
+        offsetX.value = settings.offsetX;
+        offsetXValue.textContent = settings.offsetX + 'px';
+        offsetY.value = settings.offsetY;
+        offsetYValue.textContent = settings.offsetY + 'px';
+      }
+
+      // Load and apply saved settings on startup
+      const savedSettings = loadSettings();
+      applySettings(savedSettings);
+
       // Tab switching
       document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -930,17 +1004,21 @@
         });
       });
 
-      // Initialize AudioRecorder
+      // Initialize AudioRecorder with saved settings
       const recorder = new AudioRecorder({
         canvas,
         fftSize: 2048,
         fps: 30,
-        visualizer: 'bars',
+        visualizer: savedSettings.visualizer,
         visualizerOptions: {
-          primaryColor: '#00ff88',
-          secondaryColor: '#0088ff',
-          backgroundColor: '#000000',
-          barCount: 64,
+          primaryColor: savedSettings.primaryColor,
+          secondaryColor: savedSettings.secondaryColor,
+          backgroundColor: savedSettings.backgroundColor,
+          barCount: savedSettings.barCount,
+          mirror: savedSettings.mirror,
+          visualizationAlpha: savedSettings.visualizationAlpha,
+          offsetX: savedSettings.offsetX,
+          offsetY: savedSettings.offsetY,
         },
         debug: true,
       });
@@ -1099,6 +1177,7 @@
       // Visualizer change
       visualizerSelect.addEventListener('change', () => {
         recorder.setVisualizer(visualizerSelect.value, getCurrentOptions());
+        saveSettings(getCurrentSettings());
       });
 
       // Track background image URL
@@ -1127,6 +1206,7 @@
       [primaryColor, secondaryColor, bgColor, mirror].forEach(el => {
         el.addEventListener('input', () => {
           recorder.setVisualizerOptions(getCurrentOptions());
+          saveSettings(getCurrentSettings());
         });
       });
 
@@ -1136,6 +1216,7 @@
         const newBarCount = parseInt(barCount.value);
         barCountValue.textContent = newBarCount;
         recorder.setVisualizerOptions({ barCount: newBarCount });
+        saveSettings(getCurrentSettings());
 
         // Show demo visualization if no audio source is active
         if (!recorder.sourceType) {
@@ -1148,6 +1229,7 @@
         const alpha = parseFloat(visualizationAlpha.value);
         alphaValue.textContent = Math.round(alpha * 100) + '%';
         recorder.setVisualizerOptions({ visualizationAlpha: alpha });
+        saveSettings(getCurrentSettings());
       });
 
       // Offset X handler with display update
@@ -1155,6 +1237,7 @@
         const x = parseInt(offsetX.value);
         offsetXValue.textContent = x + 'px';
         recorder.setVisualizerOptions({ offsetX: x });
+        saveSettings(getCurrentSettings());
       });
 
       // Offset Y handler with display update
@@ -1162,6 +1245,7 @@
         const y = parseInt(offsetY.value);
         offsetYValue.textContent = y + 'px';
         recorder.setVisualizerOptions({ offsetY: y });
+        saveSettings(getCurrentSettings());
       });
 
       // Background image
