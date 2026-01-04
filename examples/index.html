@@ -762,13 +762,14 @@
     }
 
     .modal-content {
-      background: var(--bg-secondary);
-      border-radius: 8px;
+      background: var(--color-bg-secondary);
+      border-radius: var(--radius-lg);
       max-width: 600px;
       width: 90%;
       max-height: 90vh;
       overflow: auto;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--color-border);
     }
 
     .modal-header {
@@ -781,13 +782,13 @@
 
     .modal-header h3 {
       margin: 0;
-      color: var(--text-primary);
+      color: var(--color-text-primary);
     }
 
     .close-btn {
       background: none;
       border: none;
-      color: var(--text-primary);
+      color: var(--color-text-primary);
       font-size: 28px;
       cursor: pointer;
       padding: 0;
@@ -844,7 +845,7 @@
       width: 200px;
       height: 200px;
       border-radius: 50%;
-      border: 2px solid var(--color-accent);
+      border: 2px solid var(--color-primary);
       box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 255, 136, 0.3);
       pointer-events: none;
     }
@@ -871,13 +872,33 @@
       gap: 10px;
     }
 
-    .btn-primary {
-      background: var(--color-accent);
-      color: #000;
+    /* Modal-specific button styles - use existing CSS variables */
+    .modal .btn {
+      padding: 10px 20px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-surface);
+      color: var(--color-text-primary);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all var(--transition-fast);
     }
 
-    .btn-primary:hover {
-      opacity: 0.8;
+    .modal .btn:hover {
+      background: var(--color-surface-hover);
+      border-color: var(--color-primary);
+    }
+
+    .modal .btn-primary {
+      background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+      color: #000;
+      border: none;
+    }
+
+    .modal .btn-primary:hover {
+      opacity: 0.9;
+      box-shadow: 0 2px 8px rgba(0, 255, 136, 0.3);
     }
   </style>
 </head>
@@ -1469,8 +1490,22 @@
       }
 
       // Visualizer change
-      visualizerSelect.addEventListener('change', () => {
-        recorder.setVisualizer(visualizerSelect.value, getCurrentOptions());
+      visualizerSelect.addEventListener('change', async () => {
+        // Temporarily stop visualization to avoid drawing during visualizer switch
+        const wasVisualizationActive = recorder.isVisualizationActive;
+        if (wasVisualizationActive) {
+          recorder.stopVisualization();
+        }
+
+        try {
+          await recorder.setVisualizer(visualizerSelect.value, getCurrentOptions());
+        } finally {
+          // Resume visualization if it was active
+          if (wasVisualizationActive && recorder.sourceType) {
+            recorder.resumeVisualization();
+          }
+        }
+
         saveSettings(getCurrentSettings());
         // Show/hide center image controls based on visualizer type
         centerImageControls.style.display = visualizerSelect.value === 'circular' ? 'grid' : 'none';
@@ -1664,12 +1699,21 @@
 
       let cropperImage = null;
       let cropperScale = 1;
+      let cropperOffsetX = 0;
+      let cropperOffsetY = 0;
+      let isDragging = false;
+      let dragStartX = 0;
+      let dragStartY = 0;
+      let dragStartOffsetX = 0;
+      let dragStartOffsetY = 0;
 
       function openCropper(imageDataUrl) {
         const img = new Image();
         img.onload = () => {
           cropperImage = img;
           cropperScale = 1;
+          cropperOffsetX = 0;
+          cropperOffsetY = 0;
           cropperZoom.value = 100;
           cropperZoomValue.textContent = '100%';
 
@@ -1686,6 +1730,9 @@
       function closeCropper() {
         cropperModal.style.display = 'none';
         cropperImage = null;
+        cropperOffsetX = 0;
+        cropperOffsetY = 0;
+        isDragging = false;
         // Reset file input
         centerImage.value = '';
       }
@@ -1702,12 +1749,72 @@
         const imgWidth = cropperImage.width * scale;
         const imgHeight = cropperImage.height * scale;
 
-        // Center the image
-        const x = (cropperCanvas.width - imgWidth) / 2;
-        const y = (cropperCanvas.height - imgHeight) / 2;
+        // Center the image with offset for dragging
+        const x = (cropperCanvas.width - imgWidth) / 2 + cropperOffsetX;
+        const y = (cropperCanvas.height - imgHeight) / 2 + cropperOffsetY;
 
         cropperCtx.drawImage(cropperImage, x, y, imgWidth, imgHeight);
       }
+
+      // Mouse drag handlers for cropper
+      cropperCanvas.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        dragStartOffsetX = cropperOffsetX;
+        dragStartOffsetY = cropperOffsetY;
+        cropperCanvas.style.cursor = 'grabbing';
+      });
+
+      cropperCanvas.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - dragStartX;
+        const dy = e.clientY - dragStartY;
+        cropperOffsetX = dragStartOffsetX + dx;
+        cropperOffsetY = dragStartOffsetY + dy;
+        drawCropper();
+      });
+
+      cropperCanvas.addEventListener('mouseup', () => {
+        isDragging = false;
+        cropperCanvas.style.cursor = 'grab';
+      });
+
+      cropperCanvas.addEventListener('mouseleave', () => {
+        if (isDragging) {
+          isDragging = false;
+          cropperCanvas.style.cursor = 'grab';
+        }
+      });
+
+      // Set initial cursor style
+      cropperCanvas.style.cursor = 'grab';
+
+      // Touch support for mobile
+      cropperCanvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          isDragging = true;
+          dragStartX = e.touches[0].clientX;
+          dragStartY = e.touches[0].clientY;
+          dragStartOffsetX = cropperOffsetX;
+          dragStartOffsetY = cropperOffsetY;
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      cropperCanvas.addEventListener('touchmove', (e) => {
+        if (!isDragging || e.touches.length !== 1) return;
+        const dx = e.touches[0].clientX - dragStartX;
+        const dy = e.touches[0].clientY - dragStartY;
+        cropperOffsetX = dragStartOffsetX + dx;
+        cropperOffsetY = dragStartOffsetY + dy;
+        drawCropper();
+        e.preventDefault();
+      }, { passive: false });
+
+      cropperCanvas.addEventListener('touchend', () => {
+        isDragging = false;
+      });
 
       function applyCrop() {
         if (!cropperImage) return;
@@ -1725,12 +1832,12 @@
         const centerY = cropperCanvas.height / 2;
         const cropRadius = 100; // Half of cropSize
 
-        // Get the visible portion parameters
+        // Get the visible portion parameters (including drag offset)
         const scale = cropperScale;
         const imgWidth = cropperImage.width * scale;
         const imgHeight = cropperImage.height * scale;
-        const imgX = (cropperCanvas.width - imgWidth) / 2;
-        const imgY = (cropperCanvas.height - imgHeight) / 2;
+        const imgX = (cropperCanvas.width - imgWidth) / 2 + cropperOffsetX;
+        const imgY = (cropperCanvas.height - imgHeight) / 2 + cropperOffsetY;
 
         // Calculate source coordinates on the original image
         const srcCenterX = (centerX - imgX) / scale;
