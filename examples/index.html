@@ -959,6 +959,9 @@
         }
       }
 
+      // Track background image URL
+      let currentBackgroundImageUrl = null;
+
       // Get current settings from UI
       function getCurrentSettings() {
         return {
@@ -996,9 +999,6 @@
           currentBackgroundImageUrl = settings.backgroundImage;
         }
       }
-
-      // Track background image URL
-      let currentBackgroundImageUrl = null;
 
       // Load and apply saved settings on startup
       const savedSettings = loadSettings();
