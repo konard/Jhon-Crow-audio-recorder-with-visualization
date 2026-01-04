@@ -29,6 +29,7 @@ export abstract class BaseVisualizer implements Visualizer {
       visualizationAlpha: 1,
       offsetX: 0,
       offsetY: 0,
+      backgroundSizeMode: 'cover',
       ...options,
     };
   }
@@ -123,8 +124,30 @@ export abstract class BaseVisualizer implements Visualizer {
     }
 
     if (this.backgroundImageElement) {
-      // Draw background image, scaled to cover
-      this.drawImageCover(ctx, this.backgroundImageElement, data.width, data.height);
+      // Draw background image based on size mode
+      const mode = this.options.backgroundSizeMode || 'cover';
+      switch (mode) {
+        case 'cover':
+          this.drawImageCover(ctx, this.backgroundImageElement, data.width, data.height);
+          break;
+        case 'contain':
+          this.drawImageContain(ctx, this.backgroundImageElement, data.width, data.height);
+          break;
+        case 'stretch':
+          this.drawImageStretch(ctx, this.backgroundImageElement, data.width, data.height);
+          break;
+        case 'tile':
+          this.drawImageTile(ctx, this.backgroundImageElement, data.width, data.height);
+          break;
+        case 'center':
+          this.drawImageCenter(ctx, this.backgroundImageElement, data.width, data.height);
+          break;
+        case 'custom':
+          this.drawImageCustom(ctx, this.backgroundImageElement, data.width, data.height);
+          break;
+        default:
+          this.drawImageCover(ctx, this.backgroundImageElement, data.width, data.height);
+      }
     } else {
       ctx.fillStyle = this.options.backgroundColor!;
       ctx.fillRect(0, 0, data.width, data.height);
@@ -176,6 +199,109 @@ export abstract class BaseVisualizer implements Visualizer {
     }
 
     ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+  }
+
+  /**
+   * Draw an image to fit within the canvas (like CSS background-size: contain)
+   */
+  protected drawImageContain(
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    width: number,
+    height: number
+  ): void {
+    const imgRatio = img.width / img.height;
+    const canvasRatio = width / height;
+
+    let drawWidth: number;
+    let drawHeight: number;
+    let offsetX: number;
+    let offsetY: number;
+
+    if (imgRatio > canvasRatio) {
+      // Image is wider than canvas
+      drawWidth = width;
+      drawHeight = width / imgRatio;
+      offsetX = 0;
+      offsetY = (height - drawHeight) / 2;
+    } else {
+      // Image is taller than canvas
+      drawHeight = height;
+      drawWidth = height * imgRatio;
+      offsetX = (width - drawWidth) / 2;
+      offsetY = 0;
+    }
+
+    // Fill background first
+    ctx.fillStyle = this.options.backgroundColor!;
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+  }
+
+  /**
+   * Draw an image stretched to fill the canvas
+   */
+  protected drawImageStretch(
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    width: number,
+    height: number
+  ): void {
+    ctx.drawImage(img, 0, 0, width, height);
+  }
+
+  /**
+   * Draw an image tiled across the canvas
+   */
+  protected drawImageTile(
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    width: number,
+    height: number
+  ): void {
+    const pattern = ctx.createPattern(img, 'repeat');
+    if (pattern) {
+      ctx.fillStyle = pattern;
+      ctx.fillRect(0, 0, width, height);
+    }
+  }
+
+  /**
+   * Draw an image centered (actual size) on the canvas
+   */
+  protected drawImageCenter(
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    width: number,
+    height: number
+  ): void {
+    // Fill background first
+    ctx.fillStyle = this.options.backgroundColor!;
+    ctx.fillRect(0, 0, width, height);
+
+    const offsetX = (width - img.width) / 2;
+    const offsetY = (height - img.height) / 2;
+    ctx.drawImage(img, offsetX, offsetY);
+  }
+
+  /**
+   * Draw an image with custom dimensions
+   */
+  protected drawImageCustom(
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    width: number,
+    height: number
+  ): void {
+    // Fill background first
+    ctx.fillStyle = this.options.backgroundColor!;
+    ctx.fillRect(0, 0, width, height);
+
+    const customWidth = this.options.backgroundWidth ?? img.width;
+    const customHeight = this.options.backgroundHeight ?? img.height;
+    const offsetX = (width - customWidth) / 2;
+    const offsetY = (height - customHeight) / 2;
+    ctx.drawImage(img, offsetX, offsetY, customWidth, customHeight);
   }
 
   /**

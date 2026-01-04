@@ -788,6 +788,15 @@
             Audio File
             <input type="file" id="audioFile" accept="audio/*" aria-label="Select audio file to convert">
           </label>
+          <label>
+            Video Quality
+            <select id="videoQuality" aria-label="Select video quality">
+              <option value="720p">HD 720p (1280x720)</option>
+              <option value="1080p" selected>Full HD 1080p (1920x1080)</option>
+              <option value="1440p">2K 1440p (2560x1440)</option>
+              <option value="2160p">4K 2160p (3840x2160)</option>
+            </select>
+          </label>
         </div>
         <div class="controls">
           <button id="convertBtn" class="btn-info" disabled data-tooltip="Convert selected audio file to video with visualization" aria-label="Convert audio to video">
@@ -837,6 +846,27 @@
         <label>
           Background Image (optional)
           <input type="file" id="bgImage" accept="image/*" aria-label="Upload background image">
+        </label>
+        <label>
+          Background Size Mode
+          <select id="bgSizeMode" aria-label="Select background image size mode">
+            <option value="cover" selected>Cover (Fill)</option>
+            <option value="contain">Contain (Fit)</option>
+            <option value="stretch">Stretch</option>
+            <option value="tile">Tile</option>
+            <option value="center">Center</option>
+            <option value="custom">Custom Size</option>
+          </select>
+        </label>
+      </div>
+      <div class="option-group" id="customSizeControls" style="display: none;">
+        <label>
+          Custom Width (px)
+          <input type="number" id="bgCustomWidth" min="1" value="800" aria-label="Custom background width">
+        </label>
+        <label>
+          Custom Height (px)
+          <input type="number" id="bgCustomHeight" min="1" value="400" aria-label="Custom background height">
         </label>
       </div>
       <div class="option-group">
@@ -919,6 +949,11 @@
       const audioFile = document.getElementById('audioFile');
       const convertBtn = document.getElementById('convertBtn');
       const progressFill = document.getElementById('progressFill');
+      const videoQuality = document.getElementById('videoQuality');
+      const bgSizeMode = document.getElementById('bgSizeMode');
+      const customSizeControls = document.getElementById('customSizeControls');
+      const bgCustomWidth = document.getElementById('bgCustomWidth');
+      const bgCustomHeight = document.getElementById('bgCustomHeight');
 
       // Settings persistence
       const SETTINGS_KEY = 'audio-recorder-settings';
@@ -935,6 +970,10 @@
         offsetX: 0,
         offsetY: 0,
         backgroundImage: null,
+        backgroundSizeMode: 'cover',
+        backgroundWidth: 800,
+        backgroundHeight: 400,
+        videoQuality: '1080p',
       };
 
       // Load settings from localStorage
@@ -975,6 +1014,10 @@
           offsetX: parseInt(offsetX.value),
           offsetY: parseInt(offsetY.value),
           backgroundImage: currentBackgroundImageUrl,
+          backgroundSizeMode: bgSizeMode.value,
+          backgroundWidth: parseInt(bgCustomWidth.value),
+          backgroundHeight: parseInt(bgCustomHeight.value),
+          videoQuality: videoQuality.value,
         };
       }
 
@@ -993,6 +1036,13 @@
         offsetXValue.textContent = settings.offsetX + 'px';
         offsetY.value = settings.offsetY;
         offsetYValue.textContent = settings.offsetY + 'px';
+        bgSizeMode.value = settings.backgroundSizeMode || 'cover';
+        bgCustomWidth.value = settings.backgroundWidth || 800;
+        bgCustomHeight.value = settings.backgroundHeight || 400;
+        videoQuality.value = settings.videoQuality || '1080p';
+
+        // Show/hide custom size controls based on mode
+        customSizeControls.style.display = settings.backgroundSizeMode === 'custom' ? 'grid' : 'none';
 
         // Restore background image if saved
         if (settings.backgroundImage) {
@@ -1208,10 +1258,16 @@
           visualizationAlpha: parseFloat(visualizationAlpha.value),
           offsetX: parseInt(offsetX.value),
           offsetY: parseInt(offsetY.value),
+          backgroundSizeMode: bgSizeMode.value,
         };
         // Include background image if one is set
         if (currentBackgroundImageUrl) {
           options.backgroundImage = currentBackgroundImageUrl;
+        }
+        // Include custom dimensions if in custom mode
+        if (bgSizeMode.value === 'custom') {
+          options.backgroundWidth = parseInt(bgCustomWidth.value);
+          options.backgroundHeight = parseInt(bgCustomHeight.value);
         }
         return options;
       }
@@ -1280,6 +1336,29 @@
         }
       });
 
+      // Background size mode change handler
+      bgSizeMode.addEventListener('change', () => {
+        const mode = bgSizeMode.value;
+        customSizeControls.style.display = mode === 'custom' ? 'grid' : 'none';
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+      });
+
+      // Custom background size handlers
+      bgCustomWidth.addEventListener('input', () => {
+        if (bgSizeMode.value === 'custom') {
+          recorder.setVisualizerOptions(getCurrentOptions());
+          saveSettings(getCurrentSettings());
+        }
+      });
+
+      bgCustomHeight.addEventListener('input', () => {
+        if (bgSizeMode.value === 'custom') {
+          recorder.setVisualizerOptions(getCurrentOptions());
+          saveSettings(getCurrentSettings());
+        }
+      });
+
       // Update progress bar with accessibility
       const progressBar = document.querySelector('.progress-bar');
       const updateProgress = (progress) => {
@@ -1310,14 +1389,23 @@
         }
 
         try {
+          // Get video dimensions based on quality setting
+          const qualityMap = {
+            '720p': { width: 1280, height: 720 },
+            '1080p': { width: 1920, height: 1080 },
+            '1440p': { width: 2560, height: 1440 },
+            '2160p': { width: 3840, height: 2160 },
+          };
+          const quality = qualityMap[videoQuality.value] || qualityMap['1080p'];
+
           const blob = await converter.convert({
             audioSource: file,
             canvas,
             visualizer: visualizerSelect.value,
             visualizerOptions: getCurrentOptions(),
             fps: 30,
-            videoWidth: 800,
-            videoHeight: 400,
+            videoWidth: quality.width,
+            videoHeight: quality.height,
             onProgress: updateProgress,
           });
 
@@ -1336,6 +1424,25 @@
             recorder.resumeVisualization();
           }
         }
+      });
+
+      // Add mouse wheel support for all range sliders
+      const rangeInputs = document.querySelectorAll('input[type="range"]');
+      rangeInputs.forEach(slider => {
+        slider.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          const step = parseFloat(slider.step) || 1;
+          const delta = e.deltaY < 0 ? step : -step;
+          const newValue = parseFloat(slider.value) + delta;
+          const min = parseFloat(slider.min);
+          const max = parseFloat(slider.max);
+
+          if (newValue >= min && newValue <= max) {
+            slider.value = newValue;
+            // Trigger input event to update the visualization
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }, { passive: false });
       });
 
       // Keyboard shortcuts for better UX

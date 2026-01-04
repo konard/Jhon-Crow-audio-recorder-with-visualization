@@ -60,6 +60,11 @@ export interface Visualizer {
 }
 
 /**
+ * Background image sizing modes
+ */
+export type BackgroundSizeMode = 'cover' | 'contain' | 'stretch' | 'tile' | 'center' | 'custom';
+
+/**
  * Options for visualizer configuration
  */
 export interface VisualizerOptions {
@@ -83,6 +88,12 @@ export interface VisualizerOptions {
   smoothing?: number;
   /** Background image or GIF */
   backgroundImage?: HTMLImageElement | string;
+  /** Background image sizing mode (cover, contain, stretch, tile, center, custom) */
+  backgroundSizeMode?: BackgroundSizeMode;
+  /** Custom background width (used with backgroundSizeMode: 'custom') */
+  backgroundWidth?: number;
+  /** Custom background height (used with backgroundSizeMode: 'custom') */
+  backgroundHeight?: number;
   /** Foreground image or GIF */
   foregroundImage?: HTMLImageElement | string;
   /** Foreground image opacity (0-1), default: 1 */
