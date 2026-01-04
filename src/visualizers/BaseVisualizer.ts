@@ -110,6 +110,14 @@ export abstract class BaseVisualizer implements Visualizer {
       options.backgroundImage !== undefined ||
       options.foregroundImage !== undefined;
 
+    // Deep merge the custom options to preserve existing custom settings
+    if (options.custom && this.options.custom) {
+      options = {
+        ...options,
+        custom: { ...this.options.custom, ...options.custom },
+      };
+    }
+
     this.options = { ...this.options, ...options };
 
     if (needsImageReload) {
