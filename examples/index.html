@@ -802,6 +802,9 @@
           <button id="convertBtn" class="btn-info" disabled data-tooltip="Convert selected audio file to video with visualization" aria-label="Convert audio to video">
             <span>Convert to Video</span>
           </button>
+          <button id="cancelConvertBtn" class="btn-danger" style="display: none;" data-tooltip="Cancel video conversion" aria-label="Cancel conversion">
+            <span>Cancel Conversion</span>
+          </button>
         </div>
         <div class="progress-bar" style="display: none;" role="progressbar" aria-valuemin="0" aria-valuemax="100">
           <div class="progress-bar-fill" id="progressFill"></div>
@@ -825,6 +828,9 @@
             <option value="glow-waveform">Glow Waveform - Modern Effect</option>
             <option value="vu-meter">VU Meter - Professional Style</option>
             <option value="spectrogram">Spectrogram - Frequency Waterfall</option>
+            <option value="spiral-waveform">Spiral Waveform - Rotating Pattern</option>
+            <option value="radial-bars">Radial Bars - Circular Analyzer</option>
+            <option value="frequency-rings">Frequency Rings - Concentric Pulses</option>
           </select>
         </label>
         <label>
@@ -893,6 +899,27 @@
           <span id="offsetYValue">0px</span>
         </label>
       </div>
+      <div class="option-group">
+        <label>
+          Layer Effect
+          <select id="layerEffect" aria-label="Select layer effect">
+            <option value="none" selected>None</option>
+            <option value="blur">Blur</option>
+            <option value="brightness">Brightness</option>
+            <option value="contrast">Contrast</option>
+            <option value="grayscale">Grayscale</option>
+            <option value="invert">Invert</option>
+            <option value="sepia">Sepia</option>
+            <option value="saturate">Saturate</option>
+            <option value="hue-rotate">Hue Rotate</option>
+          </select>
+        </label>
+        <label>
+          Effect Intensity
+          <input type="range" id="layerEffectIntensity" min="0" max="100" value="50">
+          <span id="layerEffectIntensityValue">50%</span>
+        </label>
+      </div>
     </div>
 
     <div class="recordings" id="recordings">
@@ -948,12 +975,16 @@
       const recordingsList = document.getElementById('recordingsList');
       const audioFile = document.getElementById('audioFile');
       const convertBtn = document.getElementById('convertBtn');
+      const cancelConvertBtn = document.getElementById('cancelConvertBtn');
       const progressFill = document.getElementById('progressFill');
       const videoQuality = document.getElementById('videoQuality');
       const bgSizeMode = document.getElementById('bgSizeMode');
       const customSizeControls = document.getElementById('customSizeControls');
       const bgCustomWidth = document.getElementById('bgCustomWidth');
       const bgCustomHeight = document.getElementById('bgCustomHeight');
+      const layerEffect = document.getElementById('layerEffect');
+      const layerEffectIntensity = document.getElementById('layerEffectIntensity');
+      const layerEffectIntensityValue = document.getElementById('layerEffectIntensityValue');
 
       // Settings persistence
       const SETTINGS_KEY = 'audio-recorder-settings';
@@ -974,6 +1005,8 @@
         backgroundWidth: 800,
         backgroundHeight: 400,
         videoQuality: '1080p',
+        layerEffect: 'none',
+        layerEffectIntensity: 50,
       };
 
       // Load settings from localStorage
@@ -1018,6 +1051,8 @@
           backgroundWidth: parseInt(bgCustomWidth.value),
           backgroundHeight: parseInt(bgCustomHeight.value),
           videoQuality: videoQuality.value,
+          layerEffect: layerEffect.value,
+          layerEffectIntensity: parseInt(layerEffectIntensity.value),
         };
       }
 
@@ -1040,6 +1075,9 @@
         bgCustomWidth.value = settings.backgroundWidth || 800;
         bgCustomHeight.value = settings.backgroundHeight || 400;
         videoQuality.value = settings.videoQuality || '1080p';
+        layerEffect.value = settings.layerEffect || 'none';
+        layerEffectIntensity.value = settings.layerEffectIntensity || 50;
+        layerEffectIntensityValue.textContent = (settings.layerEffectIntensity || 50) + '%';
 
         // Show/hide custom size controls based on mode
         customSizeControls.style.display = settings.backgroundSizeMode === 'custom' ? 'grid' : 'none';
@@ -1259,6 +1297,8 @@
           offsetX: parseInt(offsetX.value),
           offsetY: parseInt(offsetY.value),
           backgroundSizeMode: bgSizeMode.value,
+          layerEffect: layerEffect.value,
+          layerEffectIntensity: parseInt(layerEffectIntensity.value),
         };
         // Include background image if one is set
         if (currentBackgroundImageUrl) {
@@ -1315,6 +1355,20 @@
         const y = parseInt(offsetY.value);
         offsetYValue.textContent = y + 'px';
         recorder.setVisualizerOptions({ offsetY: y });
+        saveSettings(getCurrentSettings());
+      });
+
+      // Layer effect handler
+      layerEffect.addEventListener('change', () => {
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+      });
+
+      // Layer effect intensity handler with display update
+      layerEffectIntensity.addEventListener('input', () => {
+        const intensity = parseInt(layerEffectIntensity.value);
+        layerEffectIntensityValue.textContent = intensity + '%';
+        recorder.setVisualizerOptions({ layerEffectIntensity: intensity });
         saveSettings(getCurrentSettings());
       });
 
@@ -1378,6 +1432,8 @@
         if (!file) return;
 
         convertBtn.disabled = true;
+        convertBtn.style.display = 'none';
+        cancelConvertBtn.style.display = 'inline-flex';
         progressBar.style.display = 'block';
         updateStatus('Converting audio to video...', 'recording');
 
@@ -1412,10 +1468,16 @@
           updateStatus('Conversion complete!', 'ready');
           addRecording(blob);
         } catch (error) {
-          updateStatus('Error: ' + error.message, 'error');
+          if (error.message.includes('cancelled')) {
+            updateStatus('Conversion cancelled', 'ready');
+          } else {
+            updateStatus('Error: ' + error.message, 'error');
+          }
           console.error(error);
         } finally {
           convertBtn.disabled = false;
+          convertBtn.style.display = 'inline-flex';
+          cancelConvertBtn.style.display = 'none';
           progressBar.style.display = 'none';
           updateProgress(0);
 
@@ -1424,6 +1486,12 @@
             recorder.resumeVisualization();
           }
         }
+      });
+
+      // Cancel conversion
+      cancelConvertBtn.addEventListener('click', () => {
+        converter.cancel();
+        updateStatus('Cancelling conversion...', 'ready');
       });
 
       // Add mouse wheel support for all range sliders

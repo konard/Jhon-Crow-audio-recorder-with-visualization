@@ -11,6 +11,7 @@ export class CircularVisualizer extends BaseVisualizer {
 
   private previousHeights: number[] = [];
   private rotation = 0;
+  private centerImageElement: HTMLImageElement | null = null;
 
   constructor(options: VisualizerOptions = {}) {
     super({
@@ -20,9 +21,50 @@ export class CircularVisualizer extends BaseVisualizer {
         innerRadius: 0.3, // Inner radius as fraction of min dimension
         maxBarHeight: 0.35, // Max bar height as fraction of min dimension
         rotationSpeed: 0, // Rotation speed in radians per frame
+        centerImage: null, // Center image for circular visualization
+        useColorGradient: false, // Use primary/secondary colors instead of rainbow
         ...options.custom,
       },
     });
+  }
+
+  async init(canvas: HTMLCanvasElement, options?: VisualizerOptions): Promise<void> {
+    await super.init(canvas, options);
+    if (this.options.custom?.centerImage) {
+      await this.loadCenterImage(this.options.custom.centerImage as HTMLImageElement | string);
+    }
+  }
+
+  private async loadCenterImage(source: HTMLImageElement | string): Promise<void> {
+    return new Promise((resolve) => {
+      if (source instanceof HTMLImageElement) {
+        this.centerImageElement = source;
+        resolve();
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        this.centerImageElement = img;
+        resolve();
+      };
+      img.onerror = () => {
+        console.warn('Failed to load center image:', source);
+        resolve();
+      };
+      img.src = source;
+    });
+  }
+
+  async setOptions(options: Partial<VisualizerOptions>): Promise<void> {
+    await super.setOptions(options);
+    if (options.custom?.centerImage !== undefined) {
+      if (options.custom.centerImage) {
+        await this.loadCenterImage(options.custom.centerImage as HTMLImageElement | string);
+      } else {
+        this.centerImageElement = null;
+      }
+    }
   }
 
   draw(ctx: CanvasRenderingContext2D, data: VisualizationData): void {
@@ -85,12 +127,31 @@ export class CircularVisualizer extends BaseVisualizer {
       const x2 = Math.cos(angle) * (innerRadius + barHeight);
       const y2 = Math.sin(angle) * (innerRadius + barHeight);
 
-      // Calculate color based on position
-      const hue = (i / barCount) * 360;
-      const saturation = 80;
-      const lightness = 50 + (average / 255) * 20;
+      // Calculate color
+      const useColorGradient = this.options.custom?.useColorGradient as boolean;
+      if (useColorGradient) {
+        // Use primary/secondary color gradient
+        const primaryColor = this.options.primaryColor!;
+        const secondaryColor = this.options.secondaryColor!;
 
-      ctx.strokeStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+        // Create gradient for this bar
+        const gradient = ctx.createLinearGradient(
+          Math.cos(angle) * innerRadius,
+          Math.sin(angle) * innerRadius,
+          Math.cos(angle) * (innerRadius + maxBarHeight),
+          Math.sin(angle) * (innerRadius + maxBarHeight)
+        );
+        gradient.addColorStop(0, primaryColor);
+        gradient.addColorStop(1, secondaryColor);
+        ctx.strokeStyle = gradient;
+      } else {
+        // Use rainbow colors based on position
+        const hue = (i / barCount) * 360;
+        const saturation = 80;
+        const lightness = 50 + (average / 255) * 20;
+        ctx.strokeStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+      }
+
       ctx.lineWidth = Math.max(1, (angleStep * innerRadius) * 0.8);
       ctx.lineCap = 'round';
       ctx.globalAlpha = visualizationAlpha;
@@ -115,15 +176,39 @@ export class CircularVisualizer extends BaseVisualizer {
 
     ctx.restore();
 
-    // Draw center circle
+    // Draw center circle or image
     ctx.globalAlpha = visualizationAlpha;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, innerRadius * 0.9, 0, Math.PI * 2);
-    ctx.fillStyle = this.options.backgroundColor!;
-    ctx.fill();
+    const centerRadius = innerRadius * 0.9;
+
+    if (this.centerImageElement) {
+      // Draw center image
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, centerRadius, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(
+        this.centerImageElement,
+        centerX - centerRadius,
+        centerY - centerRadius,
+        centerRadius * 2,
+        centerRadius * 2
+      );
+      ctx.restore();
+    } else {
+      // Draw center circle with background color
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, centerRadius, 0, Math.PI * 2);
+      ctx.fillStyle = this.options.backgroundColor!;
+      ctx.fill();
+    }
     ctx.globalAlpha = 1;
 
     // Draw foreground
     this.drawForeground(ctx, data);
+  }
+
+  destroy(): void {
+    this.centerImageElement = null;
+    super.destroy();
   }
 }

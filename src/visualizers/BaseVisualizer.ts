@@ -30,6 +30,8 @@ export abstract class BaseVisualizer implements Visualizer {
       offsetX: 0,
       offsetY: 0,
       backgroundSizeMode: 'cover',
+      layerEffect: 'none',
+      layerEffectIntensity: 50,
       ...options,
     };
   }
@@ -151,6 +153,64 @@ export abstract class BaseVisualizer implements Visualizer {
     } else {
       ctx.fillStyle = this.options.backgroundColor!;
       ctx.fillRect(0, 0, data.width, data.height);
+    }
+  }
+
+  /**
+   * Apply layer effects between background and visualization
+   */
+  protected applyLayerEffect(ctx: CanvasRenderingContext2D, data: VisualizationData): void {
+    const effect = this.options.layerEffect ?? 'none';
+    if (effect === 'none') {
+      return;
+    }
+
+    const intensity = this.options.layerEffectIntensity ?? 50;
+    const { width, height } = data;
+
+    // Create a temporary canvas to apply effects
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = width;
+    tempCanvas.height = height;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
+
+    // Copy current canvas content to temp canvas
+    tempCtx.drawImage(ctx.canvas, 0, 0);
+
+    // Apply CSS filter-based effects
+    let filterValue = '';
+    switch (effect) {
+      case 'blur':
+        filterValue = `blur(${(intensity / 100) * 10}px)`;
+        break;
+      case 'brightness':
+        filterValue = `brightness(${50 + (intensity / 100) * 150}%)`;
+        break;
+      case 'contrast':
+        filterValue = `contrast(${50 + (intensity / 100) * 150}%)`;
+        break;
+      case 'grayscale':
+        filterValue = `grayscale(${intensity}%)`;
+        break;
+      case 'invert':
+        filterValue = `invert(${intensity}%)`;
+        break;
+      case 'sepia':
+        filterValue = `sepia(${intensity}%)`;
+        break;
+      case 'saturate':
+        filterValue = `saturate(${intensity * 2}%)`;
+        break;
+      case 'hue-rotate':
+        filterValue = `hue-rotate(${(intensity / 100) * 360}deg)`;
+        break;
+    }
+
+    if (filterValue) {
+      ctx.filter = filterValue;
+      ctx.drawImage(tempCanvas, 0, 0);
+      ctx.filter = 'none';
     }
   }
 

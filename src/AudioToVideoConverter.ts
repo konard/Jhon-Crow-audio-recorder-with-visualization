@@ -15,6 +15,9 @@ import {
   GlowWaveformVisualizer,
   VUMeterVisualizer,
   SpectrogramVisualizer,
+  SpiralWaveformVisualizer,
+  RadialBarsVisualizer,
+  FrequencyRingsVisualizer,
 } from './visualizers';
 
 /**
@@ -29,6 +32,9 @@ const BUILT_IN_VISUALIZERS: Record<string, new (options?: VisualizerOptions) => 
   'glow-waveform': GlowWaveformVisualizer,
   'vu-meter': VUMeterVisualizer,
   spectrogram: SpectrogramVisualizer,
+  'spiral-waveform': SpiralWaveformVisualizer,
+  'radial-bars': RadialBarsVisualizer,
+  'frequency-rings': FrequencyRingsVisualizer,
 };
 
 /**
@@ -36,9 +42,18 @@ const BUILT_IN_VISUALIZERS: Record<string, new (options?: VisualizerOptions) => 
  */
 export class AudioToVideoConverter {
   private debug: boolean;
+  private isCancelled: boolean = false;
 
   constructor(options: { debug?: boolean } = {}) {
     this.debug = options.debug ?? false;
+  }
+
+  /**
+   * Cancel the current conversion
+   */
+  cancel(): void {
+    this.isCancelled = true;
+    this.log('Conversion cancelled by user');
   }
 
   private log(...args: unknown[]): void {
@@ -69,6 +84,9 @@ export class AudioToVideoConverter {
    * @returns Promise resolving to the video blob
    */
   async convert(config: ConversionConfig): Promise<Blob> {
+    // Reset cancellation flag
+    this.isCancelled = false;
+
     const {
       audioSource,
       canvas: canvasConfig,
@@ -204,6 +222,15 @@ export class AudioToVideoConverter {
       const renderFrame = (): void => {
         if (hasErrored) return;
 
+        // Check for cancellation
+        if (this.isCancelled) {
+          hasErrored = true;
+          videoRecorder.cancel();
+          cleanup();
+          reject(new Error('Conversion cancelled by user'));
+          return;
+        }
+
         try {
           const now = performance.now();
 
@@ -230,8 +257,8 @@ export class AudioToVideoConverter {
             }
           }
 
-          // Continue until audio ends
-          if (!audioElement.ended && !audioElement.paused) {
+          // Continue until audio ends or cancelled
+          if (!audioElement.ended && !audioElement.paused && !this.isCancelled) {
             requestAnimationFrame(renderFrame);
           } else {
             // Audio ended, stop recording
