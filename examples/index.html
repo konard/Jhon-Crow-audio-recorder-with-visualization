@@ -879,6 +879,15 @@
         <label style="flex-direction: row; align-items: center;">
           <input type="checkbox" id="mirror" aria-label="Enable mirror mode"> Mirror Visualization
         </label>
+        <label style="flex-direction: row; align-items: center;">
+          <input type="checkbox" id="useCustomColors" aria-label="Use custom colors"> Use Custom Colors (Primary/Secondary)
+        </label>
+      </div>
+      <div class="option-group" id="centerImageControls" style="display: none;">
+        <label>
+          Center Image (for Circular visualizer)
+          <input type="file" id="centerImage" accept="image/*" aria-label="Upload center image">
+        </label>
       </div>
       <div class="option-group">
         <label>
@@ -985,6 +994,9 @@
       const layerEffect = document.getElementById('layerEffect');
       const layerEffectIntensity = document.getElementById('layerEffectIntensity');
       const layerEffectIntensityValue = document.getElementById('layerEffectIntensityValue');
+      const useCustomColors = document.getElementById('useCustomColors');
+      const centerImage = document.getElementById('centerImage');
+      const centerImageControls = document.getElementById('centerImageControls');
 
       // Settings persistence
       const SETTINGS_KEY = 'audio-recorder-settings';
@@ -1007,6 +1019,8 @@
         videoQuality: '1080p',
         layerEffect: 'none',
         layerEffectIntensity: 50,
+        useCustomColors: false,
+        centerImage: null,
       };
 
       // Load settings from localStorage
@@ -1033,6 +1047,7 @@
 
       // Track background image URL
       let currentBackgroundImageUrl = null;
+      let currentCenterImageUrl = null;
 
       // Get current settings from UI
       function getCurrentSettings() {
@@ -1053,6 +1068,8 @@
           videoQuality: videoQuality.value,
           layerEffect: layerEffect.value,
           layerEffectIntensity: parseInt(layerEffectIntensity.value),
+          useCustomColors: useCustomColors.checked,
+          centerImage: currentCenterImageUrl,
         };
       }
 
@@ -1082,9 +1099,20 @@
         // Show/hide custom size controls based on mode
         customSizeControls.style.display = settings.backgroundSizeMode === 'custom' ? 'grid' : 'none';
 
+        // Use custom colors setting
+        useCustomColors.checked = settings.useCustomColors || false;
+
+        // Show/hide center image controls based on visualizer
+        centerImageControls.style.display = settings.visualizer === 'circular' ? 'grid' : 'none';
+
         // Restore background image if saved
         if (settings.backgroundImage) {
           currentBackgroundImageUrl = settings.backgroundImage;
+        }
+
+        // Restore center image if saved
+        if (settings.centerImage) {
+          currentCenterImageUrl = settings.centerImage;
         }
       }
 
@@ -1283,10 +1311,13 @@
       visualizerSelect.addEventListener('change', () => {
         recorder.setVisualizer(visualizerSelect.value, getCurrentOptions());
         saveSettings(getCurrentSettings());
+        // Show/hide center image controls based on visualizer type
+        centerImageControls.style.display = visualizerSelect.value === 'circular' ? 'grid' : 'none';
       });
 
       // Get current options
       function getCurrentOptions() {
+        const isCustomColors = useCustomColors.checked;
         const options = {
           primaryColor: primaryColor.value,
           secondaryColor: secondaryColor.value,
@@ -1299,6 +1330,14 @@
           backgroundSizeMode: bgSizeMode.value,
           layerEffect: layerEffect.value,
           layerEffectIntensity: parseInt(layerEffectIntensity.value),
+          custom: {
+            // For circular visualizer
+            useColorGradient: isCustomColors,
+            // For particles visualizer
+            useCustomColors: isCustomColors,
+            // For spectrogram visualizer - set to 'custom' if checkbox is checked
+            colorScheme: isCustomColors ? 'custom' : undefined,
+          },
         };
         // Include background image if one is set
         if (currentBackgroundImageUrl) {
@@ -1309,7 +1348,33 @@
           options.backgroundWidth = parseInt(bgCustomWidth.value);
           options.backgroundHeight = parseInt(bgCustomHeight.value);
         }
+        // Include center image if one is set (for circular visualizer)
+        if (currentCenterImageUrl) {
+          options.custom.centerImage = currentCenterImageUrl;
+        }
         return options;
+      }
+
+      // Function to update slider colors based on current primary/secondary colors
+      function updateSliderColors() {
+        const primary = primaryColor.value;
+        const secondary = secondaryColor.value;
+
+        // Update CSS custom properties for sliders
+        document.documentElement.style.setProperty('--color-primary', primary);
+        document.documentElement.style.setProperty('--color-secondary', secondary);
+
+        // Update all range sliders to use the gradient
+        const rangeSliders = document.querySelectorAll('.option-group input[type="range"]');
+        rangeSliders.forEach(slider => {
+          slider.style.background = `linear-gradient(to right, ${primary} 0%, ${secondary} 100%)`;
+        });
+
+        // Update checkboxes accent color
+        const checkboxes = document.querySelectorAll('.option-group input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+          checkbox.style.accentColor = primary;
+        });
       }
 
       // Options change handlers
@@ -1317,8 +1382,15 @@
         el.addEventListener('input', () => {
           recorder.setVisualizerOptions(getCurrentOptions());
           saveSettings(getCurrentSettings());
+          // Update slider colors when colors change
+          if (el === primaryColor || el === secondaryColor) {
+            updateSliderColors();
+          }
         });
       });
+
+      // Initialize slider colors on load
+      updateSliderColors();
 
       // Bar Count change handler with demo visualization and value display
       const barCountValue = document.getElementById('barCountValue');
@@ -1410,6 +1482,27 @@
         if (bgSizeMode.value === 'custom') {
           recorder.setVisualizerOptions(getCurrentOptions());
           saveSettings(getCurrentSettings());
+        }
+      });
+
+      // Use custom colors checkbox handler
+      useCustomColors.addEventListener('change', () => {
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+      });
+
+      // Center image upload handler (for circular visualizer)
+      centerImage.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = async (event) => {
+            const dataUrl = event.target.result;
+            currentCenterImageUrl = dataUrl;
+            await recorder.setVisualizerOptions({ custom: { centerImage: dataUrl } });
+            saveSettings(getCurrentSettings());
+          };
+          reader.readAsDataURL(file);
         }
       });
 

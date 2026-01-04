@@ -52,6 +52,9 @@ export class ParticleVisualizer extends BaseVisualizer {
       ctx.globalAlpha = 1;
     }
 
+    // Apply layer effects to background
+    this.applyLayerEffect(ctx, data);
+
     // Calculate audio intensity
     let bassIntensity = 0;
     let midIntensity = 0;

@@ -157,7 +157,8 @@ export abstract class BaseVisualizer implements Visualizer {
   }
 
   /**
-   * Apply layer effects between background and visualization
+   * Apply layer effects to the background (between background and visualization)
+   * This should be called AFTER drawBackground to apply effect to background only
    */
   protected applyLayerEffect(ctx: CanvasRenderingContext2D, data: VisualizationData): void {
     const effect = this.options.layerEffect ?? 'none';
@@ -168,17 +169,17 @@ export abstract class BaseVisualizer implements Visualizer {
     const intensity = this.options.layerEffectIntensity ?? 50;
     const { width, height } = data;
 
-    // Create a temporary canvas to apply effects
+    // Create a temporary canvas to capture current background
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = width;
     tempCanvas.height = height;
     const tempCtx = tempCanvas.getContext('2d');
     if (!tempCtx) return;
 
-    // Copy current canvas content to temp canvas
+    // Copy current canvas content (background) to temp canvas
     tempCtx.drawImage(ctx.canvas, 0, 0);
 
-    // Apply CSS filter-based effects
+    // Build the CSS filter value
     let filterValue = '';
     switch (effect) {
       case 'blur':
@@ -208,6 +209,9 @@ export abstract class BaseVisualizer implements Visualizer {
     }
 
     if (filterValue) {
+      // Clear the main canvas
+      ctx.clearRect(0, 0, width, height);
+      // Draw the background with the filter effect applied
       ctx.filter = filterValue;
       ctx.drawImage(tempCanvas, 0, 0);
       ctx.filter = 'none';

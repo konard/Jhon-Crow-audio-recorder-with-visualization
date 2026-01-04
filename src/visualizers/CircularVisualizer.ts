@@ -73,6 +73,9 @@ export class CircularVisualizer extends BaseVisualizer {
     // Draw background
     this.drawBackground(ctx, data);
 
+    // Apply layer effects to background
+    this.applyLayerEffect(ctx, data);
+
     // Apply visualization alpha
     const visualizationAlpha = this.options.visualizationAlpha ?? 1;
 

@@ -17,10 +17,11 @@ export class SpectrumGradientVisualizer extends BaseVisualizer {
       barGap: 0.1,
       ...options,
       custom: {
-        fillStyle: 'gradient', // 'gradient', 'solid', 'rainbow'
+        fillStyle: 'gradient', // 'gradient', 'solid', 'rainbow', 'custom'
         peakDots: true, // Show peak indicator dots
         peakFallSpeed: 0.5, // Peak fall speed
         gradientColors: ['#ff0000', '#ff7700', '#ffff00', '#00ff00'], // Bottom to top
+        useCustomColors: false, // Use primary/secondary colors instead of preset gradient
         ...options.custom,
       },
     });
@@ -33,6 +34,9 @@ export class SpectrumGradientVisualizer extends BaseVisualizer {
 
     // Draw background
     this.drawBackground(ctx, data);
+
+    // Apply layer effects to background
+    this.applyLayerEffect(ctx, data);
 
     // Apply position offset
     this.applyTransform(ctx);
@@ -89,6 +93,8 @@ export class SpectrumGradientVisualizer extends BaseVisualizer {
       const y = this.options.mirror ? (height - barHeight) / 2 : height - barHeight;
 
       // Draw bar with gradient fill
+      const useCustomColors = this.options.custom?.useCustomColors as boolean;
+
       if (fillStyle === 'rainbow') {
         // Rainbow mode: color based on frequency position
         const hue = (i / barCount) * 360;
@@ -100,8 +106,14 @@ export class SpectrumGradientVisualizer extends BaseVisualizer {
       } else if (fillStyle === 'solid') {
         // Solid color
         ctx.fillStyle = this.options.primaryColor!;
+      } else if (fillStyle === 'custom' || useCustomColors) {
+        // Custom mode: use primary/secondary colors
+        const gradient = ctx.createLinearGradient(x, height, x, y);
+        gradient.addColorStop(0, this.options.primaryColor!);
+        gradient.addColorStop(1, this.options.secondaryColor!);
+        ctx.fillStyle = gradient;
       } else {
-        // Default gradient using custom colors or primary/secondary
+        // Default gradient using preset colors
         const gradient = ctx.createLinearGradient(x, height, x, y);
         if (gradientColors && gradientColors.length > 0) {
           gradientColors.forEach((color, idx) => {

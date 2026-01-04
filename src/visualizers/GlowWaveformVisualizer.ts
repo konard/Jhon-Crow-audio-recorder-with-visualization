@@ -29,6 +29,9 @@ export class GlowWaveformVisualizer extends BaseVisualizer {
     // Draw background
     this.drawBackground(ctx, data);
 
+    // Apply layer effects to background
+    this.applyLayerEffect(ctx, data);
+
     // Apply position offset
     this.applyTransform(ctx);
 
