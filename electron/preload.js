@@ -5,9 +5,11 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   saveVideoAndShow: async (blob, fileName) => {
     // Convert Blob to ArrayBuffer for IPC transfer
+    // Use Uint8Array directly instead of converting to Array to avoid
+    // "Invalid array length" error with large files (200MB+)
     const arrayBuffer = await blob.arrayBuffer();
-    const buffer = Array.from(new Uint8Array(arrayBuffer));
-    return ipcRenderer.invoke('save-video-and-show', buffer, fileName);
+    const uint8Array = new Uint8Array(arrayBuffer);
+    return ipcRenderer.invoke('save-video-and-show', uint8Array, fileName);
   },
   isElectron: true,
 });

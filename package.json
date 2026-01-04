@@ -14,6 +14,9 @@
     "dev": "rollup -c -w",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:e2e": "cypress run",
+    "test:e2e:open": "cypress open",
+    "test:e2e:headed": "cypress run --headed --browser chrome",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit",
@@ -43,12 +46,14 @@
   "author": "",
   "license": "Unlicense",
   "devDependencies": {
+    "@cypress/webpack-dev-server": "^5.4.1",
     "@rollup/plugin-commonjs": "^25.0.0",
     "@rollup/plugin-node-resolve": "^15.0.0",
     "@rollup/plugin-typescript": "^11.0.0",
     "@types/jest": "^29.5.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
+    "cypress": "^15.8.1",
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0",
     "eslint": "^8.0.0",
@@ -89,7 +94,9 @@
       "target": [
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "electron/icon.ico"
@@ -98,7 +105,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "icon": "electron/icon.icns"
@@ -107,7 +117,9 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "electron/icon.png"
