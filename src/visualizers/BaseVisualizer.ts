@@ -43,6 +43,13 @@ export abstract class BaseVisualizer implements Visualizer {
   async init(canvas: HTMLCanvasElement, options?: VisualizerOptions): Promise<void> {
     this.canvas = canvas;
     if (options) {
+      // Deep merge the custom options to preserve existing custom settings from constructor
+      if (options.custom && this.options.custom) {
+        options = {
+          ...options,
+          custom: { ...this.options.custom, ...options.custom },
+        };
+      }
       this.options = { ...this.options, ...options };
     }
     // Always load images if there are any in this.options (from constructor or passed options)
