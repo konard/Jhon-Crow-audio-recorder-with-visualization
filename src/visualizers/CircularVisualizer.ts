@@ -70,6 +70,11 @@ export class CircularVisualizer extends BaseVisualizer {
   draw(ctx: CanvasRenderingContext2D, data: VisualizationData): void {
     const { width, height, frequencyData } = data;
 
+    // Validate dimensions before drawing
+    if (!this.isValidDimensions(width, height)) {
+      return;
+    }
+
     // Draw background
     this.drawBackground(ctx, data);
 
@@ -132,21 +137,26 @@ export class CircularVisualizer extends BaseVisualizer {
 
       // Calculate color
       const useColorGradient = this.options.custom?.useColorGradient as boolean;
-      if (useColorGradient) {
+      if (useColorGradient && isFinite(innerRadius) && isFinite(maxBarHeight)) {
         // Use primary/secondary color gradient
         const primaryColor = this.options.primaryColor!;
         const secondaryColor = this.options.secondaryColor!;
 
-        // Create gradient for this bar
-        const gradient = ctx.createLinearGradient(
-          Math.cos(angle) * innerRadius,
-          Math.sin(angle) * innerRadius,
-          Math.cos(angle) * (innerRadius + maxBarHeight),
-          Math.sin(angle) * (innerRadius + maxBarHeight)
-        );
-        gradient.addColorStop(0, primaryColor);
-        gradient.addColorStop(1, secondaryColor);
-        ctx.strokeStyle = gradient;
+        const x1 = Math.cos(angle) * innerRadius;
+        const y1 = Math.sin(angle) * innerRadius;
+        const x2 = Math.cos(angle) * (innerRadius + maxBarHeight);
+        const y2 = Math.sin(angle) * (innerRadius + maxBarHeight);
+
+        // Only create gradient if all values are finite
+        if (isFinite(x1) && isFinite(y1) && isFinite(x2) && isFinite(y2)) {
+          const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+          gradient.addColorStop(0, primaryColor);
+          gradient.addColorStop(1, secondaryColor);
+          ctx.strokeStyle = gradient;
+        } else {
+          // Fallback to primary color if gradient can't be created
+          ctx.strokeStyle = primaryColor;
+        }
       } else {
         // Use rainbow colors based on position
         const hue = (i / barCount) * 360;

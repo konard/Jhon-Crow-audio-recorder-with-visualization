@@ -38,6 +38,11 @@ export class SpectrogramVisualizer extends BaseVisualizer {
   draw(ctx: CanvasRenderingContext2D, data: VisualizationData): void {
     const { width, height, frequencyData } = data;
 
+    // Validate dimensions before drawing
+    if (!this.isValidDimensions(width, height)) {
+      return;
+    }
+
     // Initialize or resize history canvas if needed
     if (!this.historyCanvas || !this.historyCtx || this.historyWidth !== width || this.historyHeight !== height) {
       this.historyWidth = width;
@@ -78,12 +83,15 @@ export class SpectrogramVisualizer extends BaseVisualizer {
 
     const rangeLength = endIdx - startIdx;
 
-    if (this.historyCtx && this.historyCanvas) {
+    if (this.historyCtx && this.historyCanvas && width > 0 && height > 0 && scrollSpeed > 0) {
       // Scroll the history
       if (orientation === 'horizontal') {
         // Shift left
-        const imageData = this.historyCtx.getImageData(scrollSpeed, 0, width - scrollSpeed, height);
-        this.historyCtx.putImageData(imageData, 0, 0);
+        const scrollWidth = Math.min(scrollSpeed, width);
+        if (width > scrollWidth && height > 0) {
+          const imageData = this.historyCtx.getImageData(scrollWidth, 0, width - scrollWidth, height);
+          this.historyCtx.putImageData(imageData, 0, 0);
+        }
 
         // Draw new column on the right
         for (let i = 0; i < rangeLength; i++) {
@@ -93,12 +101,15 @@ export class SpectrogramVisualizer extends BaseVisualizer {
           const barHeight = Math.max(1, height / rangeLength);
 
           this.historyCtx.fillStyle = this.getColor(value, colorScheme);
-          this.historyCtx.fillRect(width - scrollSpeed, y, scrollSpeed, barHeight);
+          this.historyCtx.fillRect(width - scrollWidth, y, scrollWidth, barHeight);
         }
       } else {
         // Vertical orientation - shift up
-        const imageData = this.historyCtx.getImageData(0, scrollSpeed, width, height - scrollSpeed);
-        this.historyCtx.putImageData(imageData, 0, 0);
+        const scrollHeight = Math.min(scrollSpeed, height);
+        if (height > scrollHeight && width > 0) {
+          const imageData = this.historyCtx.getImageData(0, scrollHeight, width, height - scrollHeight);
+          this.historyCtx.putImageData(imageData, 0, 0);
+        }
 
         // Draw new row at the bottom
         for (let i = 0; i < rangeLength; i++) {
@@ -108,7 +119,7 @@ export class SpectrogramVisualizer extends BaseVisualizer {
           const barWidth = Math.max(1, width / rangeLength);
 
           this.historyCtx.fillStyle = this.getColor(value, colorScheme);
-          this.historyCtx.fillRect(x, height - scrollSpeed, barWidth, scrollSpeed);
+          this.historyCtx.fillRect(x, height - scrollHeight, barWidth, scrollHeight);
         }
       }
 

@@ -40,6 +40,11 @@ export class ParticleVisualizer extends BaseVisualizer {
 
   draw(ctx: CanvasRenderingContext2D, data: VisualizationData): void {
     const { width, height, frequencyData, timeDomainData } = data;
+    // Validate dimensions before drawing
+    if (!this.isValidDimensions(width, height)) {
+      return;
+    }
+
 
     // Draw semi-transparent background for trail effect
     ctx.fillStyle = this.options.backgroundColor! + 'cc'; // 80% opacity

@@ -118,6 +118,13 @@ export abstract class BaseVisualizer implements Visualizer {
   }
 
   /**
+   * Validate that dimensions are valid for drawing
+   */
+  protected isValidDimensions(width: number, height: number): boolean {
+    return width > 0 && height > 0 && isFinite(width) && isFinite(height);
+  }
+
+  /**
    * Draw background (color or image)
    */
   protected drawBackground(ctx: CanvasRenderingContext2D, data: VisualizationData): void {

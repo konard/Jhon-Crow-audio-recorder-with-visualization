@@ -747,6 +747,138 @@
       background: var(--color-primary);
       color: #000;
     }
+    /* Modal styles */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 90vh;
+      overflow: auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      color: var(--text-primary);
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--text-primary);
+      font-size: 28px;
+      cursor: pointer;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .cropper-container {
+      position: relative;
+      width: 100%;
+      height: 400px;
+      background: #000;
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #cropperCanvas {
+      position: absolute;
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    .cropper-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    .cropper-circle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      border: 2px solid var(--color-accent);
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 255, 136, 0.3);
+      pointer-events: none;
+    }
+
+    .cropper-controls {
+      margin-top: 20px;
+    }
+
+    .cropper-controls label {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .cropper-controls input[type="range"] {
+      width: 100%;
+    }
+
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .btn-primary {
+      background: var(--color-accent);
+      color: #000;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.8;
+    }
   </style>
 </head>
 <body>
@@ -934,6 +1066,35 @@
     <div class="recordings" id="recordings">
       <h3>Recordings</h3>
       <div id="recordingsList"></div>
+    </div>
+  </div>
+
+  <!-- Image Cropper Modal -->
+  <div id="imageCropperModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Crop Center Image</h3>
+        <button id="closeCropperBtn" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="cropper-container">
+          <canvas id="cropperCanvas"></canvas>
+          <div class="cropper-overlay">
+            <div id="cropperCircle" class="cropper-circle"></div>
+          </div>
+        </div>
+        <div class="cropper-controls">
+          <label>
+            Zoom
+            <input type="range" id="cropperZoom" min="100" max="300" value="100" step="1">
+            <span id="cropperZoomValue">100%</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelCropBtn" class="btn">Cancel</button>
+        <button id="applyCropBtn" class="btn btn-primary">Apply</button>
+      </div>
     </div>
   </div>
 
@@ -1491,6 +1652,140 @@
         saveSettings(getCurrentSettings());
       });
 
+      // Image Cropper functionality
+      const cropperModal = document.getElementById('imageCropperModal');
+      const cropperCanvas = document.getElementById('cropperCanvas');
+      const cropperCtx = cropperCanvas.getContext('2d');
+      const cropperZoom = document.getElementById('cropperZoom');
+      const cropperZoomValue = document.getElementById('cropperZoomValue');
+      const closeCropperBtn = document.getElementById('closeCropperBtn');
+      const cancelCropBtn = document.getElementById('cancelCropBtn');
+      const applyCropBtn = document.getElementById('applyCropBtn');
+
+      let cropperImage = null;
+      let cropperScale = 1;
+
+      function openCropper(imageDataUrl) {
+        const img = new Image();
+        img.onload = () => {
+          cropperImage = img;
+          cropperScale = 1;
+          cropperZoom.value = 100;
+          cropperZoomValue.textContent = '100%';
+
+          // Set canvas size to fit container (400x400)
+          cropperCanvas.width = 400;
+          cropperCanvas.height = 400;
+
+          cropperModal.style.display = 'flex';
+          drawCropper();
+        };
+        img.src = imageDataUrl;
+      }
+
+      function closeCropper() {
+        cropperModal.style.display = 'none';
+        cropperImage = null;
+        // Reset file input
+        centerImage.value = '';
+      }
+
+      function drawCropper() {
+        if (!cropperImage) return;
+
+        cropperCtx.clearRect(0, 0, cropperCanvas.width, cropperCanvas.height);
+        cropperCtx.fillStyle = '#000';
+        cropperCtx.fillRect(0, 0, cropperCanvas.width, cropperCanvas.height);
+
+        // Calculate scaled dimensions
+        const scale = cropperScale;
+        const imgWidth = cropperImage.width * scale;
+        const imgHeight = cropperImage.height * scale;
+
+        // Center the image
+        const x = (cropperCanvas.width - imgWidth) / 2;
+        const y = (cropperCanvas.height - imgHeight) / 2;
+
+        cropperCtx.drawImage(cropperImage, x, y, imgWidth, imgHeight);
+      }
+
+      function applyCrop() {
+        if (!cropperImage) return;
+
+        // Create a temporary canvas for the cropped result
+        const resultCanvas = document.createElement('canvas');
+        const resultCtx = resultCanvas.getContext('2d');
+        const cropSize = 200; // Size of the circular crop
+
+        resultCanvas.width = cropSize;
+        resultCanvas.height = cropSize;
+
+        // Calculate the source rectangle from the cropper canvas
+        const centerX = cropperCanvas.width / 2;
+        const centerY = cropperCanvas.height / 2;
+        const cropRadius = 100; // Half of cropSize
+
+        // Get the visible portion parameters
+        const scale = cropperScale;
+        const imgWidth = cropperImage.width * scale;
+        const imgHeight = cropperImage.height * scale;
+        const imgX = (cropperCanvas.width - imgWidth) / 2;
+        const imgY = (cropperCanvas.height - imgHeight) / 2;
+
+        // Calculate source coordinates on the original image
+        const srcCenterX = (centerX - imgX) / scale;
+        const srcCenterY = (centerY - imgY) / scale;
+        const srcRadius = cropRadius / scale;
+
+        // Draw the cropped circular image
+        resultCtx.save();
+        resultCtx.beginPath();
+        resultCtx.arc(cropSize / 2, cropSize / 2, cropSize / 2, 0, Math.PI * 2);
+        resultCtx.clip();
+
+        // Draw image centered in the circle
+        resultCtx.drawImage(
+          cropperImage,
+          srcCenterX - srcRadius,
+          srcCenterY - srcRadius,
+          srcRadius * 2,
+          srcRadius * 2,
+          0,
+          0,
+          cropSize,
+          cropSize
+        );
+        resultCtx.restore();
+
+        // Convert to data URL and save
+        const croppedDataUrl = resultCanvas.toDataURL('image/png');
+        currentCenterImageUrl = croppedDataUrl;
+        recorder.setVisualizerOptions({ custom: { centerImage: croppedDataUrl } });
+        saveSettings(getCurrentSettings());
+
+        closeCropper();
+      }
+
+      // Cropper zoom handler
+      cropperZoom.addEventListener('input', () => {
+        const zoomPercent = parseInt(cropperZoom.value);
+        cropperZoomValue.textContent = zoomPercent + '%';
+        cropperScale = zoomPercent / 100;
+        drawCropper();
+      });
+
+      // Cropper button handlers
+      closeCropperBtn.addEventListener('click', closeCropper);
+      cancelCropBtn.addEventListener('click', closeCropper);
+      applyCropBtn.addEventListener('click', applyCrop);
+
+      // Close modal on backdrop click
+      cropperModal.addEventListener('click', (e) => {
+        if (e.target === cropperModal) {
+          closeCropper();
+        }
+      });
+
       // Center image upload handler (for circular visualizer)
       centerImage.addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -1498,9 +1793,8 @@
           const reader = new FileReader();
           reader.onload = async (event) => {
             const dataUrl = event.target.result;
-            currentCenterImageUrl = dataUrl;
-            await recorder.setVisualizerOptions({ custom: { centerImage: dataUrl } });
-            saveSettings(getCurrentSettings());
+            // Open cropper modal instead of applying directly
+            openCropper(dataUrl);
           };
           reader.readAsDataURL(file);
         }
