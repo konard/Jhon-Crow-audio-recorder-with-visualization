@@ -409,8 +409,9 @@ export abstract class BaseVisualizer implements Visualizer {
   }
 
   /**
-   * Apply position offset, scale, and horizontal mirror transformation to context
+   * Apply position offset and scale transformation to context
    * Call this before drawing visualization, and call restoreTransform() after
+   * When mirrorHorizontal is enabled, this shifts the visualization to the left half
    */
   protected applyTransform(ctx: CanvasRenderingContext2D, data?: { width: number; height: number }): void {
     const offsetX = this.options.offsetX ?? 0;
@@ -426,12 +427,16 @@ export abstract class BaseVisualizer implements Visualizer {
         const centerX = data.width / 2;
         const centerY = data.height / 2;
         ctx.translate(centerX, centerY);
+
+        // For horizontal mirror, we shift left to make room for the mirrored copy
         if (mirrorHorizontal) {
-          ctx.scale(-scale, scale);
+          // Scale down to half width and shift to left quarter
+          ctx.scale(scale * 0.5, scale);
+          ctx.translate(-(centerX / 2) + offsetX / (scale * 0.5), -centerY + offsetY / scale);
         } else {
           ctx.scale(scale, scale);
+          ctx.translate(-centerX + offsetX / scale, -centerY + offsetY / scale);
         }
-        ctx.translate(-centerX + offsetX / scale, -centerY + offsetY / scale);
       } else if (offsetX !== 0 || offsetY !== 0) {
         ctx.translate(offsetX, offsetY);
       }
@@ -439,10 +444,10 @@ export abstract class BaseVisualizer implements Visualizer {
   }
 
   /**
-   * Restore context transformation state
+   * Restore context transformation state and draw mirrored copy if horizontal mirror is enabled
    * Call this after drawing visualization if applyTransform() was called
    */
-  protected restoreTransform(ctx: CanvasRenderingContext2D, _data?: { width: number; height: number }): void {
+  protected restoreTransform(ctx: CanvasRenderingContext2D, data?: { width: number; height: number }): void {
     const offsetX = this.options.offsetX ?? 0;
     const offsetY = this.options.offsetY ?? 0;
     const scale = this.options.scale ?? 1;
@@ -451,6 +456,32 @@ export abstract class BaseVisualizer implements Visualizer {
 
     if (needsTransform) {
       ctx.restore();
+
+      // Draw horizontally mirrored copy on the right side
+      if (mirrorHorizontal && data) {
+        const { width, height } = data;
+        const centerX = width / 2;
+
+        // Create a temporary canvas to capture the left half
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) return;
+
+        // Copy the current canvas to temp (this has the left half visualization)
+        tempCtx.drawImage(ctx.canvas, 0, 0);
+
+        // Now draw the left half mirrored to the right half
+        ctx.save();
+        ctx.translate(centerX, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(tempCanvas,
+          0, 0, centerX, height,  // Source: left half
+          -centerX, 0, centerX, height  // Dest: mirror to right half
+        );
+        ctx.restore();
+      }
     }
   }
 

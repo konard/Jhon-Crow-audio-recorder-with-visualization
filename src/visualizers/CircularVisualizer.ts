@@ -217,30 +217,19 @@ export class CircularVisualizer extends BaseVisualizer {
       // Calculate zoomed size - use larger size for better quality when scaling down
       const zoomedSize = centerRadius * 2 * imgZoom;
 
-      // Calculate source rectangle for better quality when the image is larger than target
+      // Get the image to draw
       const img = this.centerImageElement;
-      const targetSize = Math.round(zoomedSize);
 
-      // If scaling down significantly, use the full image for better quality
-      if (img.width > targetSize * 2 || img.height > targetSize * 2) {
-        // Draw using the full source image for better downscaling quality
-        ctx.drawImage(
-          img,
-          0, 0, img.width, img.height,
-          centerX - zoomedSize / 2 + imgOffsetX,
-          centerY - zoomedSize / 2 + imgOffsetY,
-          zoomedSize,
-          zoomedSize
-        );
-      } else {
-        ctx.drawImage(
-          img,
-          centerX - zoomedSize / 2 + imgOffsetX,
-          centerY - zoomedSize / 2 + imgOffsetY,
-          zoomedSize,
-          zoomedSize
-        );
-      }
+      // For better quality, especially with .webp images, always use full source image
+      // This ensures proper downscaling and prevents pixelation
+      ctx.drawImage(
+        img,
+        0, 0, img.width, img.height,
+        centerX - zoomedSize / 2 + imgOffsetX,
+        centerY - zoomedSize / 2 + imgOffsetY,
+        zoomedSize,
+        zoomedSize
+      );
 
       ctx.restore();
     } else {

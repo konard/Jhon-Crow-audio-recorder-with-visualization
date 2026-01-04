@@ -907,7 +907,7 @@
     <h1>Audio Recorder with Visualization</h1>
 
     <div class="canvas-container">
-      <canvas id="visualizer" width="800" height="400"></canvas>
+      <canvas id="visualizer" width="1280" height="720"></canvas>
     </div>
 
     <div id="status" class="status ready">Ready - Click "Start Microphone" to begin</div>
@@ -1498,12 +1498,52 @@
         // Visualizer settings - disable during recording to prevent issues
         if (isRecording) {
           visualizerSelect.disabled = true;
+          primaryColor.disabled = true;
+          secondaryColor.disabled = true;
+          swapColorsBtn.disabled = true;
+          bgColor.disabled = true;
+          barCount.disabled = true;
           bgImage.disabled = true;
+          bgSizeMode.disabled = true;
+          bgCustomWidth.disabled = true;
+          bgCustomHeight.disabled = true;
+          mirror.disabled = true;
+          mirrorHorizontal.disabled = true;
+          useCustomColors.disabled = true;
           centerImage.disabled = true;
+          centerImageZoom.disabled = true;
+          centerImageOffsetX.disabled = true;
+          centerImageOffsetY.disabled = true;
+          visualizationAlpha.disabled = true;
+          offsetX.disabled = true;
+          offsetY.disabled = true;
+          visualizationScale.disabled = true;
+          layerEffect.disabled = true;
+          layerEffectIntensity.disabled = true;
         } else {
           visualizerSelect.disabled = false;
+          primaryColor.disabled = false;
+          secondaryColor.disabled = false;
+          swapColorsBtn.disabled = false;
+          bgColor.disabled = false;
+          barCount.disabled = false;
           bgImage.disabled = false;
+          bgSizeMode.disabled = false;
+          bgCustomWidth.disabled = false;
+          bgCustomHeight.disabled = false;
+          mirror.disabled = false;
+          mirrorHorizontal.disabled = false;
+          useCustomColors.disabled = false;
           centerImage.disabled = false;
+          centerImageZoom.disabled = false;
+          centerImageOffsetX.disabled = false;
+          centerImageOffsetY.disabled = false;
+          visualizationAlpha.disabled = false;
+          offsetX.disabled = false;
+          offsetY.disabled = false;
+          visualizationScale.disabled = false;
+          layerEffect.disabled = false;
+          layerEffectIntensity.disabled = false;
         }
       }
 
