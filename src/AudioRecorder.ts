@@ -68,12 +68,20 @@ export class AudioRecorder extends EventEmitter<AudioRecorderEvents> {
       this.canvas = config.canvas;
     }
 
-    // Get 2D context
-    const ctx = this.canvas.getContext('2d');
+    // Get 2D context with color space settings for better color accuracy
+    const ctx = this.canvas.getContext('2d', {
+      alpha: true,
+      colorSpace: 'srgb',
+      willReadFrequently: false,
+    });
     if (!ctx) {
       throw new Error('Failed to get 2D context from canvas');
     }
     this.ctx = ctx;
+
+    // Set image smoothing for better quality
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     this.debug = config.debug ?? false;
 
