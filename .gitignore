@@ -8,6 +8,11 @@ electron-dist/
 # Test coverage
 coverage/
 
+# Cypress
+cypress/videos/
+cypress/screenshots/
+cypress/downloads/
+
 # IDE
 .idea/
 .vscode/

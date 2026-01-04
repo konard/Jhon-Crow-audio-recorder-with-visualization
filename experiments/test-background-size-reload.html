@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Background Size Mode After Reload</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #1a1a2e;
+      color: white;
+    }
+    canvas {
+      border: 1px solid #00ff88;
+      display: block;
+      margin: 20px 0;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 10px;
+      max-width: 600px;
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      background: #00ff88;
+      color: #000;
+      border: none;
+      cursor: pointer;
+    }
+    select, input[type="file"] {
+      padding: 5px;
+    }
+    .status {
+      padding: 10px;
+      margin: 10px 0;
+      background: #16213e;
+      border-left: 4px solid #00ff88;
+    }
+  </style>
+</head>
+<body>
+  <h1>Background Size Mode Test</h1>
+  <p>This test verifies that background size mode (cover, contain, etc.) is properly preserved after page reload.</p>
+
+  <div class="status" id="status">Reload the page to test if settings persist</div>
+
+  <canvas id="canvas" width="800" height="400"></canvas>
+
+  <div class="controls">
+    <label>Background Image:</label>
+    <input type="file" id="bgImage" accept="image/*">
+
+    <label>Size Mode:</label>
+    <select id="bgSizeMode">
+      <option value="cover">Cover (Fill)</option>
+      <option value="contain">Contain (Fit)</option>
+      <option value="stretch">Stretch</option>
+      <option value="tile">Tile</option>
+      <option value="center">Center</option>
+    </select>
+  </div>
+
+  <button onclick="saveSettings()">Save Settings to localStorage</button>
+  <button onclick="loadSettings()">Load Settings from localStorage</button>
+  <button onclick="clearSettings()">Clear Settings</button>
+  <button onclick="showSettings()">Show Current Settings in Console</button>
+
+  <script type="module">
+    import { AudioRecorder } from '../src/index.js';
+
+    const canvas = document.getElementById('canvas');
+    const bgImage = document.getElementById('bgImage');
+    const bgSizeMode = document.getElementById('bgSizeMode');
+    const status = document.getElementById('status');
+
+    let currentBackgroundImageUrl = null;
+
+    // Load saved settings on page load
+    const savedSettings = JSON.parse(localStorage.getItem('test-bg-settings') || '{}');
+
+    // Apply saved settings to controls
+    if (savedSettings.backgroundSizeMode) {
+      bgSizeMode.value = savedSettings.backgroundSizeMode;
+    }
+
+    // Initialize recorder with saved settings
+    const recorder = new AudioRecorder({
+      canvas,
+      fftSize: 2048,
+      fps: 30,
+      visualizer: 'bars',
+      visualizerOptions: {
+        backgroundSizeMode: savedSettings.backgroundSizeMode || 'cover',
+        backgroundImage: savedSettings.backgroundImage || null,
+      },
+      debug: true,
+    });
+
+    // Load background image if saved
+    recorder.ready().then(async () => {
+      if (savedSettings.backgroundImage) {
+        currentBackgroundImageUrl = savedSettings.backgroundImage;
+        await recorder.setVisualizerOptions({ backgroundImage: savedSettings.backgroundImage });
+        status.textContent = `Loaded saved settings: mode=${savedSettings.backgroundSizeMode}`;
+      }
+      // Show demo
+      recorder.showDemoVisualization(500);
+    });
+
+    // Background image upload handler
+    bgImage.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const dataUrl = event.target.result;
+          currentBackgroundImageUrl = dataUrl;
+          await recorder.setVisualizerOptions({ backgroundImage: dataUrl });
+          recorder.showDemoVisualization(500);
+          status.textContent = 'Background image loaded';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // Background size mode change handler
+    bgSizeMode.addEventListener('change', async () => {
+      const mode = bgSizeMode.value;
+      await recorder.setVisualizerOptions({ backgroundSizeMode: mode });
+      recorder.showDemoVisualization(500);
+      status.textContent = `Background size mode changed to: ${mode}`;
+    });
+
+    // Global functions for buttons
+    window.saveSettings = () => {
+      const settings = {
+        backgroundImage: currentBackgroundImageUrl,
+        backgroundSizeMode: bgSizeMode.value,
+      };
+      localStorage.setItem('test-bg-settings', JSON.stringify(settings));
+      status.textContent = 'Settings saved! Reload the page to test.';
+      console.log('Saved settings:', settings);
+    };
+
+    window.loadSettings = () => {
+      const settings = JSON.parse(localStorage.getItem('test-bg-settings') || '{}');
+      console.log('Loaded settings:', settings);
+      status.textContent = 'Settings loaded (see console)';
+    };
+
+    window.clearSettings = () => {
+      localStorage.removeItem('test-bg-settings');
+      status.textContent = 'Settings cleared! Reload to see default behavior.';
+    };
+
+    window.showSettings = () => {
+      console.log('Current settings:', {
+        backgroundImage: currentBackgroundImageUrl ? 'Set (data URL)' : 'None',
+        backgroundSizeMode: bgSizeMode.value,
+      });
+    };
+  </script>
+</body>
+</html>
