@@ -1106,8 +1106,8 @@
         </div>
         <div class="cropper-controls">
           <label>
-            Zoom (50% = zoom out, 100% = original, 300% = zoom in)
-            <input type="range" id="cropperZoom" min="50" max="300" value="100" step="1">
+            Zoom (10% = zoom out max, 100% = original, 300% = zoom in)
+            <input type="range" id="cropperZoom" min="10" max="300" value="100" step="1">
             <span id="cropperZoomValue">100%</span>
           </label>
         </div>
@@ -1322,11 +1322,31 @@
         visualizationAlpha: savedSettings.visualizationAlpha,
         offsetX: savedSettings.offsetX,
         offsetY: savedSettings.offsetY,
+        layerEffect: savedSettings.layerEffect || 'none',
+        layerEffectIntensity: savedSettings.layerEffectIntensity || 50,
+        backgroundSizeMode: savedSettings.backgroundSizeMode || 'cover',
+        backgroundWidth: savedSettings.backgroundWidth,
+        backgroundHeight: savedSettings.backgroundHeight,
+        custom: {
+          useColorGradient: savedSettings.useCustomColors || false,
+          useCustomColors: savedSettings.useCustomColors || false,
+        },
       };
 
       // Add background image if it was saved
       if (savedSettings.backgroundImage) {
         visualizerOptions.backgroundImage = savedSettings.backgroundImage;
+      }
+
+      // Add center image if it was saved (for circular visualizer)
+      if (savedSettings.centerImage) {
+        visualizerOptions.custom.centerImage = savedSettings.centerImage;
+      }
+
+      // Add custom color scheme/fillStyle if using custom colors (for spectrogram/spectrum-gradient)
+      if (savedSettings.useCustomColors) {
+        visualizerOptions.custom.colorScheme = 'custom';
+        visualizerOptions.custom.fillStyle = 'custom';
       }
 
       const recorder = new AudioRecorder({
@@ -1336,6 +1356,12 @@
         visualizer: savedSettings.visualizer,
         visualizerOptions,
         debug: true,
+      });
+
+      // Wait for recorder to be fully initialized then draw initial frame
+      recorder.ready().then(() => {
+        // Draw initial preview frame to show the visualization settings
+        recorder.showDemoVisualization(100);
       });
 
       // Initialize converter
@@ -1509,6 +1535,7 @@
         saveSettings(getCurrentSettings());
         // Show/hide center image controls based on visualizer type
         centerImageControls.style.display = visualizerSelect.value === 'circular' ? 'grid' : 'none';
+        updatePreview();
       });
 
       // Get current options
@@ -1559,6 +1586,14 @@
         return options;
       }
 
+      // Helper function to show preview after settings change
+      function updatePreview() {
+        // Show demo visualization if no audio source is active
+        if (!recorder.sourceType) {
+          recorder.showDemoVisualization(500);
+        }
+      }
+
       // Function to update slider colors based on current primary/secondary colors
       function updateSliderColors() {
         const primary = primaryColor.value;
@@ -1590,6 +1625,7 @@
           if (el === primaryColor || el === secondaryColor) {
             updateSliderColors();
           }
+          updatePreview();
         });
       });
 
@@ -1603,11 +1639,7 @@
         barCountValue.textContent = newBarCount;
         recorder.setVisualizerOptions({ barCount: newBarCount });
         saveSettings(getCurrentSettings());
-
-        // Show demo visualization if no audio source is active
-        if (!recorder.sourceType) {
-          recorder.showDemoVisualization(1000);
-        }
+        updatePreview();
       });
 
       // Visualization alpha handler with display update
@@ -1616,6 +1648,7 @@
         alphaValue.textContent = Math.round(alpha * 100) + '%';
         recorder.setVisualizerOptions({ visualizationAlpha: alpha });
         saveSettings(getCurrentSettings());
+        updatePreview();
       });
 
       // Offset X handler with display update
@@ -1624,6 +1657,7 @@
         offsetXValue.textContent = x + 'px';
         recorder.setVisualizerOptions({ offsetX: x });
         saveSettings(getCurrentSettings());
+        updatePreview();
       });
 
       // Offset Y handler with display update
@@ -1632,12 +1666,14 @@
         offsetYValue.textContent = y + 'px';
         recorder.setVisualizerOptions({ offsetY: y });
         saveSettings(getCurrentSettings());
+        updatePreview();
       });
 
       // Layer effect handler
       layerEffect.addEventListener('change', () => {
         recorder.setVisualizerOptions(getCurrentOptions());
         saveSettings(getCurrentSettings());
+        updatePreview();
       });
 
       // Layer effect intensity handler with display update
@@ -1646,6 +1682,7 @@
         layerEffectIntensityValue.textContent = intensity + '%';
         recorder.setVisualizerOptions({ layerEffectIntensity: intensity });
         saveSettings(getCurrentSettings());
+        updatePreview();
       });
 
       // Background image
@@ -1661,6 +1698,7 @@
             await recorder.setVisualizerOptions({ backgroundImage: dataUrl });
             // Save settings with the new background image
             saveSettings(getCurrentSettings());
+            updatePreview();
           };
           reader.readAsDataURL(file);
         }
@@ -1672,6 +1710,7 @@
         customSizeControls.style.display = mode === 'custom' ? 'grid' : 'none';
         recorder.setVisualizerOptions(getCurrentOptions());
         saveSettings(getCurrentSettings());
+        updatePreview();
       });
 
       // Custom background size handlers
@@ -1679,6 +1718,7 @@
         if (bgSizeMode.value === 'custom') {
           recorder.setVisualizerOptions(getCurrentOptions());
           saveSettings(getCurrentSettings());
+          updatePreview();
         }
       });
 
@@ -1686,6 +1726,7 @@
         if (bgSizeMode.value === 'custom') {
           recorder.setVisualizerOptions(getCurrentOptions());
           saveSettings(getCurrentSettings());
+          updatePreview();
         }
       });
 
@@ -1693,6 +1734,7 @@
       useCustomColors.addEventListener('change', () => {
         recorder.setVisualizerOptions(getCurrentOptions());
         saveSettings(getCurrentSettings());
+        updatePreview();
       });
 
       // Image Cropper functionality
@@ -1879,6 +1921,7 @@
         saveSettings(getCurrentSettings());
 
         closeCropper();
+        updatePreview();
       }
 
       // Cropper zoom handler
