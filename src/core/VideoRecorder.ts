@@ -185,7 +185,10 @@ export class VideoRecorder {
    */
   private cleanup(): void {
     if (this.stream) {
-      this.stream.getTracks().forEach((track) => track.stop());
+      // Only stop video tracks (canvas stream), NOT audio tracks
+      // Audio tracks belong to the original microphone stream and should remain active
+      // for subsequent recordings
+      this.stream.getVideoTracks().forEach((track) => track.stop());
       this.stream = null;
     }
     this.mediaRecorder = null;

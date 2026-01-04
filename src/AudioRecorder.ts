@@ -59,6 +59,7 @@ export class AudioRecorder extends EventEmitter<AudioRecorderEvents> {
   private _sourceType: AudioSourceType | null = null;
   private debug: boolean;
   private _readyPromise: Promise<void>;
+  private timerIntervalId: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: AudioRecorderConfig) {
     super();
@@ -130,7 +131,74 @@ export class AudioRecorder extends EventEmitter<AudioRecorderEvents> {
     // Initialize visualizer and store the ready promise
     const initResult = this.visualizer.init(this.canvas, config.visualizerOptions);
     this._readyPromise = initResult instanceof Promise ? initResult : Promise.resolve();
+
+    // Set up visibility change handler for tab switching
+    this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+
     this.log('AudioRecorder initialized');
+  }
+
+  /**
+   * Handle page visibility changes to ensure visualization continues when tab is hidden
+   */
+  private handleVisibilityChange(): void {
+    if (this.animationFrameId !== null || this.timerIntervalId !== null) {
+      if (document.hidden) {
+        // Page is hidden, switch to timer-based animation
+        this.log('Page hidden, switching to timer-based visualization');
+
+        // Stop requestAnimationFrame
+        if (this.animationFrameId !== null) {
+          cancelAnimationFrame(this.animationFrameId);
+          this.animationFrameId = null;
+        }
+
+        // Start timer-based animation
+        this.startTimerFallback();
+      } else {
+        // Page is visible again, switch back to requestAnimationFrame
+        this.log('Page visible, switching to requestAnimationFrame');
+
+        // Stop timer
+        this.stopTimerFallback();
+
+        // Restart requestAnimationFrame if we have an active source
+        if (this._sourceType !== null) {
+          this.startVisualization();
+        }
+      }
+    }
+  }
+
+  /**
+   * Start timer-based fallback for visualization when tab is hidden
+   */
+  private startTimerFallback(): void {
+    if (this.timerIntervalId !== null) {
+      return;
+    }
+
+    this.timerIntervalId = setInterval(() => {
+      const timestamp = performance.now();
+      if (timestamp - this.lastFrameTime >= this.frameInterval) {
+        this.lastFrameTime = timestamp;
+        this.drawFrame(timestamp);
+      }
+    }, this.frameInterval);
+
+    this.log('Started timer fallback visualization');
+  }
+
+  /**
+   * Stop timer-based fallback
+   */
+  private stopTimerFallback(): void {
+    if (this.timerIntervalId !== null) {
+      clearInterval(this.timerIntervalId);
+      this.timerIntervalId = null;
+      this.log('Stopped timer fallback visualization');
+    }
   }
 
   /**
@@ -259,8 +327,10 @@ export class AudioRecorder extends EventEmitter<AudioRecorderEvents> {
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
-      this.log('Stopped visualization');
     }
+    // Also stop timer fallback if active
+    this.stopTimerFallback();
+    this.log('Stopped visualization');
   }
 
   /**
@@ -469,7 +539,7 @@ export class AudioRecorder extends EventEmitter<AudioRecorderEvents> {
    * Check if visualization is active
    */
   get isVisualizationActive(): boolean {
-    return this.animationFrameId !== null;
+    return this.animationFrameId !== null || this.timerIntervalId !== null;
   }
 
   /**
@@ -497,6 +567,9 @@ export class AudioRecorder extends EventEmitter<AudioRecorderEvents> {
    * Clean up all resources
    */
   destroy(): void {
+    // Remove visibility change listener
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+
     this.stopVisualization();
     this.stopMicrophone();
     this.cancelRecording();

@@ -994,6 +994,11 @@
           Secondary Color
           <input type="color" id="secondaryColor" value="#0088ff" aria-label="Select secondary color">
         </label>
+        <label style="justify-content: center;">
+          <button type="button" id="swapColorsBtn" class="btn-secondary" style="padding: 8px 16px; min-width: auto; font-size: 13px;" data-tooltip="Swap primary and secondary colors" aria-label="Swap colors">
+            ⇄ Swap Colors
+          </button>
+        </label>
         <label>
           Background Color
           <input type="color" id="bgColor" value="#000000" aria-label="Select background color">
@@ -1030,7 +1035,10 @@
       </div>
       <div class="option-group">
         <label style="flex-direction: row; align-items: center;">
-          <input type="checkbox" id="mirror" aria-label="Enable mirror mode"> Mirror Visualization
+          <input type="checkbox" id="mirror" aria-label="Enable mirror mode"> Mirror Visualization (Vertical)
+        </label>
+        <label style="flex-direction: row; align-items: center;" data-tooltip="Flip the visualization horizontally around the center">
+          <input type="checkbox" id="mirrorHorizontal" aria-label="Enable horizontal mirror"> Mirror Horizontal (Center Flip)
         </label>
         <label style="flex-direction: row; align-items: center;">
           <input type="checkbox" id="useCustomColors" aria-label="Use custom colors"> Use Custom Colors (Primary/Secondary)
@@ -1079,6 +1087,11 @@
           Offset Y (Vertical Position)
           <input type="range" id="offsetY" min="-200" max="200" value="0">
           <span id="offsetYValue">0px</span>
+        </label>
+        <label data-tooltip="Scale the visualization size (50% - 200%)">
+          Visualization Scale
+          <input type="range" id="visualizationScale" min="50" max="200" value="100" step="5">
+          <span id="scaleValue">100%</span>
         </label>
       </div>
       <div class="option-group">
@@ -1173,16 +1186,20 @@
       const visualizerSelect = document.getElementById('visualizerSelect');
       const primaryColor = document.getElementById('primaryColor');
       const secondaryColor = document.getElementById('secondaryColor');
+      const swapColorsBtn = document.getElementById('swapColorsBtn');
       const bgColor = document.getElementById('bgColor');
       const barCount = document.getElementById('barCount');
       const bgImage = document.getElementById('bgImage');
       const mirror = document.getElementById('mirror');
+      const mirrorHorizontal = document.getElementById('mirrorHorizontal');
       const visualizationAlpha = document.getElementById('visualizationAlpha');
       const alphaValue = document.getElementById('alphaValue');
       const offsetX = document.getElementById('offsetX');
       const offsetXValue = document.getElementById('offsetXValue');
       const offsetY = document.getElementById('offsetY');
       const offsetYValue = document.getElementById('offsetYValue');
+      const visualizationScale = document.getElementById('visualizationScale');
+      const scaleValue = document.getElementById('scaleValue');
       const recordingsList = document.getElementById('recordingsList');
       const audioFile = document.getElementById('audioFile');
       const convertBtn = document.getElementById('convertBtn');
@@ -1218,9 +1235,11 @@
         backgroundColor: '#000000',
         barCount: 64,
         mirror: false,
+        mirrorHorizontal: false,
         visualizationAlpha: 1,
         offsetX: 0,
         offsetY: 0,
+        scale: 100,
         backgroundImage: null,
         backgroundSizeMode: 'cover',
         backgroundWidth: 800,
@@ -1270,9 +1289,11 @@
           backgroundColor: bgColor.value,
           barCount: parseInt(barCount.value),
           mirror: mirror.checked,
+          mirrorHorizontal: mirrorHorizontal.checked,
           visualizationAlpha: parseFloat(visualizationAlpha.value),
           offsetX: parseInt(offsetX.value),
           offsetY: parseInt(offsetY.value),
+          scale: parseInt(visualizationScale.value),
           backgroundImage: currentBackgroundImageUrl,
           backgroundSizeMode: bgSizeMode.value,
           backgroundWidth: parseInt(bgCustomWidth.value),
@@ -1297,12 +1318,15 @@
         barCount.value = settings.barCount;
         document.getElementById('barCountValue').textContent = settings.barCount;
         mirror.checked = settings.mirror;
+        mirrorHorizontal.checked = settings.mirrorHorizontal || false;
         visualizationAlpha.value = settings.visualizationAlpha;
         alphaValue.textContent = Math.round(settings.visualizationAlpha * 100) + '%';
         offsetX.value = settings.offsetX;
         offsetXValue.textContent = settings.offsetX + 'px';
         offsetY.value = settings.offsetY;
         offsetYValue.textContent = settings.offsetY + 'px';
+        visualizationScale.value = settings.scale || 100;
+        scaleValue.textContent = (settings.scale || 100) + '%';
         bgSizeMode.value = settings.backgroundSizeMode || 'cover';
         bgCustomWidth.value = settings.backgroundWidth || 800;
         bgCustomHeight.value = settings.backgroundHeight || 400;
@@ -1365,9 +1389,11 @@
         backgroundColor: savedSettings.backgroundColor,
         barCount: savedSettings.barCount,
         mirror: savedSettings.mirror,
+        mirrorHorizontal: savedSettings.mirrorHorizontal || false,
         visualizationAlpha: savedSettings.visualizationAlpha,
         offsetX: savedSettings.offsetX,
         offsetY: savedSettings.offsetY,
+        scale: (savedSettings.scale || 100) / 100,
         layerEffect: savedSettings.layerEffect || 'none',
         layerEffectIntensity: savedSettings.layerEffectIntensity || 50,
         backgroundSizeMode: savedSettings.backgroundSizeMode || 'cover',
@@ -1419,10 +1445,66 @@
       // Recording counter
       let recordingCount = 0;
 
+      // Track recording state for UI safety
+      let isRecording = false;
+      let isConverting = false;
+
       // Update status
       function updateStatus(message, type = 'ready') {
         status.textContent = message;
         status.className = 'status ' + type;
+      }
+
+      // Update button states based on current recording/conversion state
+      function updateButtonStates() {
+        const isMicActive = recorder.sourceType === 'microphone';
+        const isBusy = isRecording || isConverting;
+
+        // Microphone controls
+        startMicBtn.disabled = isMicActive || isBusy;
+        stopMicBtn.disabled = !isMicActive || isRecording;
+
+        // Recording controls
+        startRecordBtn.disabled = !isMicActive || isRecording || isConverting;
+        stopRecordBtn.disabled = !isRecording;
+
+        // Tab switching - disable the other tab during recording/conversion
+        const micTab = document.querySelector('.tab[data-tab="microphone"]');
+        const convertTab = document.querySelector('.tab[data-tab="convert"]');
+        if (micTab && convertTab) {
+          if (isRecording) {
+            convertTab.disabled = true;
+            convertTab.style.pointerEvents = 'none';
+            convertTab.style.opacity = '0.5';
+          } else if (isConverting) {
+            micTab.disabled = true;
+            micTab.style.pointerEvents = 'none';
+            micTab.style.opacity = '0.5';
+          } else {
+            micTab.disabled = false;
+            micTab.style.pointerEvents = '';
+            micTab.style.opacity = '';
+            convertTab.disabled = false;
+            convertTab.style.pointerEvents = '';
+            convertTab.style.opacity = '';
+          }
+        }
+
+        // Conversion controls
+        if (!isConverting) {
+          convertBtn.disabled = !audioFile.files.length || isRecording;
+        }
+
+        // Visualizer settings - disable during recording to prevent issues
+        if (isRecording) {
+          visualizerSelect.disabled = true;
+          bgImage.disabled = true;
+          centerImage.disabled = true;
+        } else {
+          visualizerSelect.disabled = false;
+          bgImage.disabled = false;
+          centerImage.disabled = false;
+        }
       }
 
       // Start microphone
@@ -1430,9 +1512,7 @@
         try {
           await recorder.startMicrophone();
           updateStatus('Microphone active - visualization running', 'ready');
-          startMicBtn.disabled = true;
-          stopMicBtn.disabled = false;
-          startRecordBtn.disabled = false;
+          updateButtonStates();
         } catch (error) {
           updateStatus('Error: ' + error.message, 'error');
           console.error(error);
@@ -1444,31 +1524,31 @@
         recorder.stopMicrophone();
         recorder.stopVisualization();
         updateStatus('Microphone stopped', 'ready');
-        startMicBtn.disabled = false;
-        stopMicBtn.disabled = true;
-        startRecordBtn.disabled = true;
+        updateButtonStates();
       });
 
       // Start recording
       startRecordBtn.addEventListener('click', () => {
+        isRecording = true;
         recorder.startRecording();
         updateStatus('Recording...', 'recording');
-        startRecordBtn.disabled = true;
-        stopRecordBtn.disabled = false;
+        updateButtonStates();
       });
 
       // Stop recording
       stopRecordBtn.addEventListener('click', async () => {
         try {
           const blob = await recorder.stopRecording();
+          isRecording = false;
           updateStatus('Recording saved!', 'ready');
-          startRecordBtn.disabled = false;
-          stopRecordBtn.disabled = true;
+          updateButtonStates();
 
           // Add to recordings list
           addRecording(blob);
         } catch (error) {
+          isRecording = false;
           updateStatus('Error: ' + error.message, 'error');
+          updateButtonStates();
           console.error(error);
         }
       });
@@ -1614,9 +1694,11 @@
           backgroundColor: bgColor.value,
           barCount: parseInt(barCount.value),
           mirror: mirror.checked,
+          mirrorHorizontal: mirrorHorizontal.checked,
           visualizationAlpha: parseFloat(visualizationAlpha.value),
           offsetX: parseInt(offsetX.value),
           offsetY: parseInt(offsetY.value),
+          scale: parseInt(visualizationScale.value) / 100,
           backgroundSizeMode: bgSizeMode.value,
           layerEffect: layerEffect.value,
           layerEffectIntensity: parseInt(layerEffectIntensity.value),
@@ -1672,7 +1754,7 @@
       }
 
       // Options change handlers
-      [primaryColor, secondaryColor, bgColor, mirror].forEach(el => {
+      [primaryColor, secondaryColor, bgColor, mirror, mirrorHorizontal].forEach(el => {
         el.addEventListener('input', () => {
           recorder.setVisualizerOptions(getCurrentOptions());
           saveSettings(getCurrentSettings());
@@ -1686,6 +1768,20 @@
 
       // Initialize slider colors on load
       updateSliderColors();
+
+      // Swap colors button handler
+      swapColorsBtn.addEventListener('click', () => {
+        // Swap primary and secondary color values
+        const tempColor = primaryColor.value;
+        primaryColor.value = secondaryColor.value;
+        secondaryColor.value = tempColor;
+
+        // Update visualizer with new colors
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+        updateSliderColors();
+        updatePreview();
+      });
 
       // Bar Count change handler with demo visualization and value display
       const barCountValue = document.getElementById('barCountValue');
@@ -1720,6 +1816,15 @@
         const y = parseInt(offsetY.value);
         offsetYValue.textContent = y + 'px';
         recorder.setVisualizerOptions({ offsetY: y });
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Scale handler with display update
+      visualizationScale.addEventListener('input', () => {
+        const s = parseInt(visualizationScale.value);
+        scaleValue.textContent = s + '%';
+        recorder.setVisualizerOptions({ scale: s / 100 });
         saveSettings(getCurrentSettings());
         updatePreview();
       });
@@ -2071,7 +2176,7 @@
 
       // Audio file for conversion
       audioFile.addEventListener('change', () => {
-        convertBtn.disabled = !audioFile.files.length;
+        convertBtn.disabled = !audioFile.files.length || isRecording;
       });
 
       // Convert audio to video
@@ -2079,11 +2184,13 @@
         const file = audioFile.files[0];
         if (!file) return;
 
+        isConverting = true;
         convertBtn.disabled = true;
         convertBtn.style.display = 'none';
         cancelConvertBtn.style.display = 'inline-flex';
         progressBar.style.display = 'block';
         updateStatus('Converting audio to video...', 'recording');
+        updateButtonStates();
 
         // Pause AudioRecorder visualization during conversion to prevent flickering
         // (both would draw to the same canvas causing visual artifacts)
@@ -2123,11 +2230,13 @@
           }
           console.error(error);
         } finally {
+          isConverting = false;
           convertBtn.disabled = false;
           convertBtn.style.display = 'inline-flex';
           cancelConvertBtn.style.display = 'none';
           progressBar.style.display = 'none';
           updateProgress(0);
+          updateButtonStates();
 
           // Resume AudioRecorder visualization if it was active before conversion
           if (wasVisualizationActive && recorder.sourceType) {

@@ -24,11 +24,13 @@ export abstract class BaseVisualizer implements Visualizer {
       barCount: 64,
       barGap: 0.2,
       mirror: false,
+      mirrorHorizontal: false,
       smoothing: 0.8,
       foregroundAlpha: 1,
       visualizationAlpha: 1,
       offsetX: 0,
       offsetY: 0,
+      scale: 1,
       backgroundSizeMode: 'cover',
       layerEffect: 'none',
       layerEffectIntensity: 50,
@@ -407,16 +409,32 @@ export abstract class BaseVisualizer implements Visualizer {
   }
 
   /**
-   * Apply position offset transformation to context
+   * Apply position offset, scale, and horizontal mirror transformation to context
    * Call this before drawing visualization, and call restoreTransform() after
    */
-  protected applyTransform(ctx: CanvasRenderingContext2D): void {
+  protected applyTransform(ctx: CanvasRenderingContext2D, data?: { width: number; height: number }): void {
     const offsetX = this.options.offsetX ?? 0;
     const offsetY = this.options.offsetY ?? 0;
+    const scale = this.options.scale ?? 1;
+    const mirrorHorizontal = this.options.mirrorHorizontal ?? false;
+    const needsTransform = offsetX !== 0 || offsetY !== 0 || scale !== 1 || mirrorHorizontal;
 
-    if (offsetX !== 0 || offsetY !== 0) {
+    if (needsTransform) {
       ctx.save();
-      ctx.translate(offsetX, offsetY);
+      // If we have scale and dimensions, scale around center
+      if ((scale !== 1 || mirrorHorizontal) && data) {
+        const centerX = data.width / 2;
+        const centerY = data.height / 2;
+        ctx.translate(centerX, centerY);
+        if (mirrorHorizontal) {
+          ctx.scale(-scale, scale);
+        } else {
+          ctx.scale(scale, scale);
+        }
+        ctx.translate(-centerX + offsetX / scale, -centerY + offsetY / scale);
+      } else if (offsetX !== 0 || offsetY !== 0) {
+        ctx.translate(offsetX, offsetY);
+      }
     }
   }
 
@@ -424,11 +442,14 @@ export abstract class BaseVisualizer implements Visualizer {
    * Restore context transformation state
    * Call this after drawing visualization if applyTransform() was called
    */
-  protected restoreTransform(ctx: CanvasRenderingContext2D): void {
+  protected restoreTransform(ctx: CanvasRenderingContext2D, _data?: { width: number; height: number }): void {
     const offsetX = this.options.offsetX ?? 0;
     const offsetY = this.options.offsetY ?? 0;
+    const scale = this.options.scale ?? 1;
+    const mirrorHorizontal = this.options.mirrorHorizontal ?? false;
+    const needsTransform = offsetX !== 0 || offsetY !== 0 || scale !== 1 || mirrorHorizontal;
 
-    if (offsetX !== 0 || offsetY !== 0) {
+    if (needsTransform) {
       ctx.restore();
     }
   }
