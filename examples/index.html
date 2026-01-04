@@ -934,6 +934,7 @@
         visualizationAlpha: 1,
         offsetX: 0,
         offsetY: 0,
+        backgroundImage: null,
       };
 
       // Load settings from localStorage
@@ -970,6 +971,7 @@
           visualizationAlpha: parseFloat(visualizationAlpha.value),
           offsetX: parseInt(offsetX.value),
           offsetY: parseInt(offsetY.value),
+          backgroundImage: currentBackgroundImageUrl,
         };
       }
 
@@ -988,6 +990,11 @@
         offsetXValue.textContent = settings.offsetX + 'px';
         offsetY.value = settings.offsetY;
         offsetYValue.textContent = settings.offsetY + 'px';
+
+        // Restore background image if saved
+        if (settings.backgroundImage) {
+          currentBackgroundImageUrl = settings.backgroundImage;
+        }
       }
 
       // Load and apply saved settings on startup
@@ -1005,21 +1012,28 @@
       });
 
       // Initialize AudioRecorder with saved settings
+      const visualizerOptions = {
+        primaryColor: savedSettings.primaryColor,
+        secondaryColor: savedSettings.secondaryColor,
+        backgroundColor: savedSettings.backgroundColor,
+        barCount: savedSettings.barCount,
+        mirror: savedSettings.mirror,
+        visualizationAlpha: savedSettings.visualizationAlpha,
+        offsetX: savedSettings.offsetX,
+        offsetY: savedSettings.offsetY,
+      };
+
+      // Add background image if it was saved
+      if (savedSettings.backgroundImage) {
+        visualizerOptions.backgroundImage = savedSettings.backgroundImage;
+      }
+
       const recorder = new AudioRecorder({
         canvas,
         fftSize: 2048,
         fps: 30,
         visualizer: savedSettings.visualizer,
-        visualizerOptions: {
-          primaryColor: savedSettings.primaryColor,
-          secondaryColor: savedSettings.secondaryColor,
-          backgroundColor: savedSettings.backgroundColor,
-          barCount: savedSettings.barCount,
-          mirror: savedSettings.mirror,
-          visualizationAlpha: savedSettings.visualizationAlpha,
-          offsetX: savedSettings.offsetX,
-          offsetY: savedSettings.offsetY,
-        },
+        visualizerOptions,
         debug: true,
       });
 
@@ -1252,10 +1266,17 @@
       bgImage.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
-          const url = URL.createObjectURL(file);
-          currentBackgroundImageUrl = url;
-          // Wait for image to load before continuing to prevent flickering
-          await recorder.setVisualizerOptions({ backgroundImage: url });
+          // Convert image to base64 data URL for persistence across sessions
+          const reader = new FileReader();
+          reader.onload = async (event) => {
+            const dataUrl = event.target.result;
+            currentBackgroundImageUrl = dataUrl;
+            // Wait for image to load before continuing to prevent flickering
+            await recorder.setVisualizerOptions({ backgroundImage: dataUrl });
+            // Save settings with the new background image
+            saveSettings(getCurrentSettings());
+          };
+          reader.readAsDataURL(file);
         }
       });
 
