@@ -89,6 +89,8 @@ export interface VisualizerOptions {
   barGap?: number;
   /** Whether to mirror the visualization vertically */
   mirror?: boolean;
+  /** Whether to mirror the visualization horizontally (reflect around center) */
+  mirrorHorizontal?: boolean;
   /** Smoothing factor for animations (0-1) */
   smoothing?: number;
   /** Background image or GIF */
@@ -109,6 +111,8 @@ export interface VisualizerOptions {
   offsetX?: number;
   /** Vertical offset in pixels (can be negative), default: 0 - shifts visualization up/down */
   offsetY?: number;
+  /** Scale factor for visualization size (0.5 - 2.0), default: 1.0 - scales visualization around center */
+  scale?: number;
   /** Layer effect type applied between background and visualization */
   layerEffect?: LayerEffectType;
   /** Layer effect intensity (0-100), default: 50 */

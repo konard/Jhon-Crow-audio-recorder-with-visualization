@@ -44,7 +44,7 @@ export class SpectrumGradientVisualizer extends BaseVisualizer {
     this.applyLayerEffect(ctx, data);
 
     // Apply position offset
-    this.applyTransform(ctx);
+    this.applyTransform(ctx, data);
 
     // Apply visualization alpha
     const visualizationAlpha = this.options.visualizationAlpha ?? 1;
@@ -156,7 +156,7 @@ export class SpectrumGradientVisualizer extends BaseVisualizer {
     ctx.globalAlpha = previousAlpha;
 
     // Restore transform
-    this.restoreTransform(ctx);
+    this.restoreTransform(ctx, data);
 
     // Draw foreground
     this.drawForeground(ctx, data);

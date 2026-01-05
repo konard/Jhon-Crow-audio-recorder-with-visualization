@@ -89,9 +89,10 @@ export class CircularVisualizer extends BaseVisualizer {
 
     const offsetX = this.options.offsetX ?? 0;
     const offsetY = this.options.offsetY ?? 0;
+    const scale = this.options.scale ?? 1;
     const centerX = width / 2 + offsetX;
     const centerY = height / 2 + offsetY;
-    const minDimension = Math.min(width, height);
+    const minDimension = Math.min(width, height) * scale;
 
     const barCount = this.options.barCount!;
     const innerRadius = (this.options.custom?.innerRadius as number) * minDimension;
@@ -199,6 +200,11 @@ export class CircularVisualizer extends BaseVisualizer {
     if (this.centerImageElement) {
       // Draw center image with offset and zoom support
       ctx.save();
+
+      // Enable high-quality image smoothing to prevent pixelation
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
       ctx.beginPath();
       ctx.arc(centerX, centerY, centerRadius, 0, Math.PI * 2);
       ctx.clip();
@@ -208,16 +214,23 @@ export class CircularVisualizer extends BaseVisualizer {
       const imgOffsetY = (this.options.custom?.centerImageOffsetY as number) ?? 0;
       const imgZoom = (this.options.custom?.centerImageZoom as number) ?? 1;
 
-      // Calculate zoomed size
+      // Calculate zoomed size - use larger size for better quality when scaling down
       const zoomedSize = centerRadius * 2 * imgZoom;
 
+      // Get the image to draw
+      const img = this.centerImageElement;
+
+      // For better quality, especially with .webp images, always use full source image
+      // This ensures proper downscaling and prevents pixelation
       ctx.drawImage(
-        this.centerImageElement,
+        img,
+        0, 0, img.width, img.height,
         centerX - zoomedSize / 2 + imgOffsetX,
         centerY - zoomedSize / 2 + imgOffsetY,
         zoomedSize,
         zoomedSize
       );
+
       ctx.restore();
     } else {
       // Draw center circle with background color

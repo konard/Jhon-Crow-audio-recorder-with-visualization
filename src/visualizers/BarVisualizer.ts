@@ -33,8 +33,8 @@ export class BarVisualizer extends BaseVisualizer {
     // Apply layer effects to background
     this.applyLayerEffect(ctx, data);
 
-    // Apply position offset
-    this.applyTransform(ctx);
+    // Apply position offset and scale
+    this.applyTransform(ctx, data);
 
     // Apply visualization alpha
     const visualizationAlpha = this.options.visualizationAlpha ?? 1;
@@ -101,7 +101,7 @@ export class BarVisualizer extends BaseVisualizer {
     ctx.globalAlpha = previousAlpha;
 
     // Restore transform
-    this.restoreTransform(ctx);
+    this.restoreTransform(ctx, data);
 
     // Draw foreground
     this.drawForeground(ctx, data);

@@ -24,11 +24,13 @@ export abstract class BaseVisualizer implements Visualizer {
       barCount: 64,
       barGap: 0.2,
       mirror: false,
+      mirrorHorizontal: false,
       smoothing: 0.8,
       foregroundAlpha: 1,
       visualizationAlpha: 1,
       offsetX: 0,
       offsetY: 0,
+      scale: 1,
       backgroundSizeMode: 'cover',
       layerEffect: 'none',
       layerEffectIntensity: 50,
@@ -407,29 +409,86 @@ export abstract class BaseVisualizer implements Visualizer {
   }
 
   /**
-   * Apply position offset transformation to context
+   * Apply position offset and scale transformation to context
    * Call this before drawing visualization, and call restoreTransform() after
+   * When mirrorHorizontal is enabled, visualization diverges from center (left goes left, right goes right)
    */
-  protected applyTransform(ctx: CanvasRenderingContext2D): void {
+  protected applyTransform(ctx: CanvasRenderingContext2D, data?: { width: number; height: number }): void {
     const offsetX = this.options.offsetX ?? 0;
     const offsetY = this.options.offsetY ?? 0;
+    const scale = this.options.scale ?? 1;
+    const mirrorHorizontal = this.options.mirrorHorizontal ?? false;
+    const needsTransform = offsetX !== 0 || offsetY !== 0 || scale !== 1 || mirrorHorizontal;
 
-    if (offsetX !== 0 || offsetY !== 0) {
+    if (needsTransform) {
       ctx.save();
-      ctx.translate(offsetX, offsetY);
+      // If we have scale and dimensions, scale around center
+      if ((scale !== 1 || mirrorHorizontal) && data) {
+        const centerX = data.width / 2;
+        const centerY = data.height / 2;
+        ctx.translate(centerX, centerY);
+
+        // For horizontal mirror, we draw visualization on the left half only
+        // The mirrored copy will be drawn in restoreTransform
+        if (mirrorHorizontal) {
+          // Scale down to half width and shift to left quarter
+          ctx.scale(scale * 0.5, scale);
+          ctx.translate(-(centerX / 2) + offsetX / (scale * 0.5), -centerY + offsetY / scale);
+        } else {
+          ctx.scale(scale, scale);
+          ctx.translate(-centerX + offsetX / scale, -centerY + offsetY / scale);
+        }
+      } else if (offsetX !== 0 || offsetY !== 0) {
+        ctx.translate(offsetX, offsetY);
+      }
     }
   }
 
   /**
-   * Restore context transformation state
+   * Restore context transformation state and draw mirrored copy if horizontal mirror is enabled
    * Call this after drawing visualization if applyTransform() was called
+   * The mirror creates a diverging effect - visualization goes outward from center
    */
-  protected restoreTransform(ctx: CanvasRenderingContext2D): void {
+  protected restoreTransform(ctx: CanvasRenderingContext2D, data?: { width: number; height: number }): void {
     const offsetX = this.options.offsetX ?? 0;
     const offsetY = this.options.offsetY ?? 0;
+    const scale = this.options.scale ?? 1;
+    const mirrorHorizontal = this.options.mirrorHorizontal ?? false;
+    const needsTransform = offsetX !== 0 || offsetY !== 0 || scale !== 1 || mirrorHorizontal;
 
-    if (offsetX !== 0 || offsetY !== 0) {
+    if (needsTransform) {
       ctx.restore();
+
+      // Draw horizontally mirrored copy - visualization diverges from center
+      // Left half shows normal visualization going left, right half shows mirrored going right
+      if (mirrorHorizontal && data) {
+        const { width, height } = data;
+        const centerX = width / 2;
+
+        // Create a temporary canvas to capture only the visualization (not background)
+        // We need to capture what was just drawn on the left half
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) return;
+
+        // Copy the current canvas to temp
+        tempCtx.drawImage(ctx.canvas, 0, 0);
+
+        // Draw the left half mirrored to the right half
+        // This creates a diverging effect where visualization goes outward from center
+        ctx.save();
+        // Move to right edge and flip horizontally
+        ctx.translate(width, 0);
+        ctx.scale(-1, 1);
+        // Draw left half to right side (which will appear mirrored due to scale -1)
+        ctx.drawImage(tempCanvas,
+          0, 0, centerX, height,  // Source: left half
+          centerX, 0, centerX, height  // Dest: right half (but flipped)
+        );
+        ctx.restore();
+      }
     }
   }
 
