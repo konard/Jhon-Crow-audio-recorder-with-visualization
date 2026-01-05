@@ -21,6 +21,13 @@ import {
 } from './visualizers';
 
 /**
+ * Extended MediaStreamTrack interface for video tracks with manual frame control
+ */
+interface MediaStreamVideoTrack extends MediaStreamTrack {
+  requestFrame(): void;
+}
+
+/**
  * Built-in visualizer registry
  */
 const BUILT_IN_VISUALIZERS: Record<string, new (options?: VisualizerOptions) => Visualizer> = {
@@ -423,6 +430,22 @@ export class AudioToVideoConverter {
       this.log('Could not capture stream from audio element, video will have no audio');
     }
 
+    // Setup manual frame capture for offline rendering
+    // Using captureStream(0) gives us manual control via requestFrame()
+    const canvasStream = canvas.captureStream(0); // 0 = manual frame capture
+    const videoTrack = canvasStream.getVideoTracks()[0] as MediaStreamVideoTrack;
+    if (!videoTrack) {
+      throw new Error('Failed to get video track from canvas stream');
+    }
+
+    this.log(`Using manual frame capture mode for offline rendering`);
+
+    // Combine video track with audio stream
+    const recordingStream = new MediaStream([videoTrack]);
+    if (audioStream) {
+      audioStream.getAudioTracks().forEach(track => recordingStream.addTrack(track));
+    }
+
     // Draw initial frame to canvas BEFORE starting capture
     // This ensures captureStream has content to capture from the start
     const { timeDomainData: initialTimeDomain, frequencyData: initialFrequency } = this.analyzeAudioFrame(
@@ -441,13 +464,17 @@ export class AudioToVideoConverter {
       fftSize,
     });
 
-    // CRITICAL: Wait a frame to ensure the canvas has rendered
-    await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+    // Request initial frame capture
+    if (typeof videoTrack.requestFrame === 'function') {
+      videoTrack.requestFrame();
+    }
 
-    // Start recording with audio stream AFTER initial frame is drawn
-    videoRecorder.start(canvas, audioStream, {
+    // CRITICAL: Wait a frame to ensure the canvas has rendered
+    await new Promise(resolve => setTimeout(resolve, 16));
+
+    // Start recording with pre-configured stream
+    videoRecorder.startWithStream(recordingStream, {
       format,
-      fps,
       videoBitrate,
       audioBitrate,
     });
@@ -480,18 +507,15 @@ export class AudioToVideoConverter {
     };
 
     try {
-      // Use requestAnimationFrame-based rendering with manual frame rate control
-      // This ensures proper canvas stream capture while maintaining precise timing
+      // Render frames synchronously with manual frame capture
+      // This ensures MediaRecorder receives frames properly
       const startRealTime = performance.now();
       let frameIndex = 0;
-      const frameInterval = 1000 / fps; // milliseconds per frame (e.g., 33.33ms for 30fps)
 
-      this.log(`Starting frame rendering loop: ${totalFrames} frames at ${fps} fps (${frameInterval.toFixed(2)}ms per frame)`);
+      this.log(`Starting frame rendering loop: ${totalFrames} frames at ${fps} fps`);
 
       await new Promise<void>((resolve, reject) => {
-        let lastFrameTime = startRealTime;
-
-        const renderFrame = (currentTime: number): void => {
+        const renderFrame = (): void => {
           try {
             // Check for cancellation
             if (this.isCancelled) {
@@ -507,47 +531,49 @@ export class AudioToVideoConverter {
               return;
             }
 
-            // Check if enough time has elapsed for the next frame
-            const elapsed = currentTime - lastFrameTime;
-            if (elapsed >= frameInterval) {
-              lastFrameTime = currentTime;
+            // Calculate current audio time for this frame
+            const audioTime = frameIndex / fps;
+            const sampleIndex = Math.floor(audioTime * sampleRate);
 
-              // Calculate current audio time for this frame
-              const audioTime = frameIndex / fps;
-              const sampleIndex = Math.floor(audioTime * sampleRate);
+            // Generate visualization data from audio buffer
+            const { timeDomainData, frequencyData } = this.analyzeAudioFrame(
+              channelData,
+              sampleIndex,
+              fftSize,
+              sampleRate
+            );
 
-              // Generate visualization data from audio buffer
-              const { timeDomainData, frequencyData } = this.analyzeAudioFrame(
-                channelData,
-                sampleIndex,
-                fftSize,
-                sampleRate
-              );
+            const data: VisualizationData = {
+              timeDomainData,
+              frequencyData,
+              timestamp: audioTime * 1000,
+              width: canvas.width,
+              height: canvas.height,
+              sampleRate,
+              fftSize,
+            };
 
-              const data: VisualizationData = {
-                timeDomainData,
-                frequencyData,
-                timestamp: audioTime * 1000,
-                width: canvas.width,
-                height: canvas.height,
-                sampleRate,
-                fftSize,
-              };
+            // Draw the frame
+            visualizer.draw(ctx, data);
 
-              visualizer.draw(ctx, data);
-
-              // Report progress every 10% or for first/last frames
-              if (onProgress && (frameIndex % Math.floor(totalFrames / 10) === 0 || frameIndex === totalFrames - 1)) {
-                const progress = frameIndex / totalFrames;
-                this.log(`Rendering progress: ${(progress * 100).toFixed(1)}% (frame ${frameIndex}/${totalFrames})`);
-                onProgress(progress);
-              }
-
-              frameIndex++;
+            // CRITICAL: Manually request frame capture after drawing
+            // This ensures the MediaRecorder receives this frame
+            if (typeof (videoTrack as MediaStreamVideoTrack).requestFrame === 'function') {
+              (videoTrack as MediaStreamVideoTrack).requestFrame();
             }
 
-            // Continue to next frame
-            requestAnimationFrame(renderFrame);
+            // Report progress every 10% or for first/last frames
+            if (onProgress && (frameIndex % Math.floor(totalFrames / 10) === 0 || frameIndex === totalFrames - 1)) {
+              const progress = frameIndex / totalFrames;
+              this.log(`Rendering progress: ${(progress * 100).toFixed(1)}% (frame ${frameIndex}/${totalFrames})`);
+              onProgress(progress);
+            }
+
+            frameIndex++;
+
+            // Continue to next frame using setTimeout to maintain control
+            // Use small timeout to allow browser to process the frame
+            setTimeout(renderFrame, 0);
           } catch (error) {
             this.log(`Error in rendering loop at frame ${frameIndex}:`, error);
             reject(error);
@@ -555,7 +581,7 @@ export class AudioToVideoConverter {
         };
 
         // Start the rendering loop
-        requestAnimationFrame(renderFrame);
+        renderFrame();
       });
 
       // Wait for the audio to finish playing (ensures all audio is captured)

@@ -55,6 +55,63 @@ export class VideoRecorder {
   }
 
   /**
+   * Start recording with a pre-configured stream
+   * @param stream - MediaStream containing video and/or audio tracks
+   * @param options - Recording options
+   */
+  startWithStream(
+    stream: MediaStream,
+    options: {
+      format?: RecordingFormat;
+      videoBitrate?: number;
+      audioBitrate?: number;
+    } = {}
+  ): void {
+    if (this._state !== 'inactive') {
+      throw new Error('Recording already in progress');
+    }
+
+    const format = options.format ?? 'webm';
+    const mimeType = VideoRecorder.getSupportedMimeType(format);
+
+    if (!mimeType) {
+      throw new Error(`Format "${format}" is not supported in this browser`);
+    }
+
+    this.stream = stream;
+    this.log('Using provided stream with', stream.getTracks().length, 'tracks');
+
+    // Create MediaRecorder with higher quality settings
+    // Increased default bitrate from 2.5Mbps to 8Mbps for better quality
+    const recorderOptions: MediaRecorderOptions = {
+      mimeType,
+      videoBitsPerSecond: options.videoBitrate ?? 8000000,
+    };
+    if (stream.getAudioTracks().length > 0 && options.audioBitrate) {
+      recorderOptions.audioBitsPerSecond = options.audioBitrate;
+    }
+
+    this.mediaRecorder = new MediaRecorder(this.stream, recorderOptions);
+    this.recordedChunks = [];
+
+    this.mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        this.recordedChunks.push(event.data);
+        this.log('Received chunk:', event.data.size, 'bytes');
+      }
+    };
+
+    this.mediaRecorder.onerror = (event) => {
+      console.error('[VideoRecorder] Error:', event);
+    };
+
+    // Request data every second for better memory management
+    this.mediaRecorder.start(1000);
+    this._state = 'recording';
+    this.log('Started recording with mimeType:', mimeType);
+  }
+
+  /**
    * Start recording
    * @param canvas - Canvas element to record
    * @param audioStream - Optional audio stream to include

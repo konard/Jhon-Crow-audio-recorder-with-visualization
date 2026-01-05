@@ -76,6 +76,9 @@ export abstract class BaseVisualizer implements Visualizer {
     }
 
     await Promise.all(this.imageLoadPromises);
+
+    // Invalidate background cache after loading new images
+    this._backgroundNeedsRedraw = true;
   }
 
   /**
@@ -119,6 +122,17 @@ export abstract class BaseVisualizer implements Visualizer {
       options.backgroundImage !== undefined ||
       options.foregroundImage !== undefined;
 
+    // Check if background-related options changed (need to invalidate background cache)
+    const needsBackgroundRedraw =
+      options.backgroundColor !== undefined ||
+      options.backgroundImage !== undefined ||
+      options.backgroundSizeMode !== undefined ||
+      options.backgroundWidth !== undefined ||
+      options.backgroundHeight !== undefined ||
+      options.drawBackground !== undefined ||
+      options.layerEffect !== undefined ||
+      options.layerEffectIntensity !== undefined;
+
     // Deep merge the custom options to preserve existing custom settings
     if (options.custom && this.options.custom) {
       options = {
@@ -131,6 +145,11 @@ export abstract class BaseVisualizer implements Visualizer {
 
     if (needsImageReload) {
       await this.loadImages();
+    }
+
+    // Invalidate background cache for mirror horizontal mode
+    if (needsBackgroundRedraw) {
+      this._backgroundNeedsRedraw = true;
     }
   }
 
@@ -421,6 +440,10 @@ export abstract class BaseVisualizer implements Visualizer {
   // Temporary canvas for horizontal mirror mode (reused to avoid allocation overhead)
   private _mirrorTempCanvas: HTMLCanvasElement | null = null;
 
+  // Background canvas for persistent background in mirror mode (prevents flickering)
+  private _backgroundCanvas: HTMLCanvasElement | null = null;
+  private _backgroundNeedsRedraw = true;
+
   /**
    * Apply position offset and scale transformation to context
    * Call this before drawing visualization, and call restoreTransform() after
@@ -469,11 +492,37 @@ export abstract class BaseVisualizer implements Visualizer {
     if (needsTransform) {
       ctx.restore();
 
-      // For horizontal mirror: the main canvas has visualization ONLY on left half (no background yet)
-      // We extract it, then composite it with background to avoid flickering
+      // For horizontal mirror: use persistent background canvas to avoid flickering
+      // The main canvas has visualization ONLY on left half (no background yet)
       if (mirrorHorizontal && data) {
         const { width, height } = data;
         const halfWidth = Math.floor(width / 2);
+
+        // Create/update persistent background canvas
+        if (!this._backgroundCanvas) {
+          this._backgroundCanvas = document.createElement('canvas');
+          this._backgroundNeedsRedraw = true;
+        }
+        if (this._backgroundCanvas.width !== width || this._backgroundCanvas.height !== height) {
+          this._backgroundCanvas.width = width;
+          this._backgroundCanvas.height = height;
+          this._backgroundNeedsRedraw = true;
+        }
+
+        // Redraw background only if needed (first time, size change, or explicit flag)
+        if (this._backgroundNeedsRedraw) {
+          const bgCtx = this._backgroundCanvas.getContext('2d');
+          if (bgCtx) {
+            bgCtx.clearRect(0, 0, width, height);
+            if (this.options.drawBackground) {
+              this._drawBackgroundInternal(bgCtx, width, height);
+            }
+            // Apply layer effects to background
+            const visualizationData = data as VisualizationData;
+            this.applyLayerEffect(bgCtx, visualizationData);
+          }
+          this._backgroundNeedsRedraw = false;
+        }
 
         // Create temp canvas for the visualization (half width)
         if (!this._mirrorTempCanvas) {
@@ -492,17 +541,14 @@ export abstract class BaseVisualizer implements Visualizer {
           0, 0, halfWidth, height      // dest: temp canvas
         );
 
-        // Clear the entire canvas and draw background ONCE
+        // Clear canvas and composite: background + visualizations
+        // Using drawImage instead of clearRect+redraw prevents flickering
         ctx.clearRect(0, 0, width, height);
 
-        // Draw background if enabled (bypass mirror horizontal check using internal method)
-        if (this.options.drawBackground) {
-          this._drawBackgroundInternal(ctx, width, height);
+        // Draw persistent background (no expensive redraw)
+        if (this._backgroundCanvas) {
+          ctx.drawImage(this._backgroundCanvas, 0, 0);
         }
-
-        // Apply layer effects to background
-        const visualizationData = data as VisualizationData;
-        this.applyLayerEffect(ctx, visualizationData);
 
         // Draw visualization on RIGHT half (from center to right edge)
         ctx.drawImage(
@@ -535,5 +581,6 @@ export abstract class BaseVisualizer implements Visualizer {
     this.foregroundImageElement = null;
     this.imageLoadPromises = [];
     this._mirrorTempCanvas = null;
+    this._backgroundCanvas = null;
   }
 }
