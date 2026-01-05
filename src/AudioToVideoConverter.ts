@@ -412,6 +412,24 @@ export class AudioToVideoConverter {
       audioElement.load();
     });
 
+    // Draw initial frame to canvas before starting capture
+    // This ensures captureStream has content to capture from the start
+    const { timeDomainData: initialTimeDomain, frequencyData: initialFrequency } = this.analyzeAudioFrame(
+      channelData,
+      0,
+      fftSize,
+      sampleRate
+    );
+    visualizer.draw(ctx, {
+      timeDomainData: initialTimeDomain,
+      frequencyData: initialFrequency,
+      timestamp: 0,
+      width: canvas.width,
+      height: canvas.height,
+      sampleRate,
+      fftSize,
+    });
+
     // Get audio stream for recording (audio must NOT be muted for capture to work)
     let audioStream: MediaStream | undefined;
     try {
@@ -435,11 +453,18 @@ export class AudioToVideoConverter {
     // Start audio playback - audio must play (not muted) for capture to work
     // But we set volume to 0 to avoid hearing it during conversion
     audioElement.volume = 0;
+
+    // Try to play audio
     const playPromise = audioElement.play();
     if (playPromise) {
-      await playPromise.catch(() => {
-        this.log('Audio autoplay blocked, continuing without audio in video');
-      });
+      await playPromise
+        .then(() => {
+          this.log('Audio playback started successfully');
+        })
+        .catch((error) => {
+          this.log('Audio autoplay blocked:', error.message);
+          this.log('Continuing with video-only output');
+        });
     }
 
     const cleanup = (): void => {
