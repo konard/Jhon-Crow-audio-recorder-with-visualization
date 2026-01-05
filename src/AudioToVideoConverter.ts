@@ -480,21 +480,25 @@ export class AudioToVideoConverter {
     };
 
     try {
-      // Use requestAnimationFrame-based rendering for better performance and reliability
-      // This approach is not throttled even when tab is backgrounded (with proper setup)
+      // Use setInterval-based rendering for reliable frame delivery
+      // Unlike requestAnimationFrame, setInterval is not throttled when window is blurred/minimized
+      // This ensures MediaRecorder receives a steady stream of frames
       const startRealTime = performance.now();
       let frameIndex = 0;
+      const frameInterval = 1000 / fps; // milliseconds per frame (e.g., 33.33ms for 30fps)
 
       await new Promise<void>((resolve, reject) => {
-        const renderNextFrame = (): void => {
+        const intervalId = setInterval(() => {
           // Check for cancellation
           if (this.isCancelled) {
+            clearInterval(intervalId);
             reject(new Error('Conversion cancelled by user'));
             return;
           }
 
           if (frameIndex >= totalFrames) {
             // All frames rendered
+            clearInterval(intervalId);
             resolve();
             return;
           }
@@ -529,14 +533,7 @@ export class AudioToVideoConverter {
           }
 
           frameIndex++;
-
-          // Use requestAnimationFrame for next frame
-          // This ensures smooth rendering that works even when tab is backgrounded
-          requestAnimationFrame(renderNextFrame);
-        };
-
-        // Start rendering
-        requestAnimationFrame(renderNextFrame);
+        }, frameInterval);
       });
 
       // Wait for the audio to finish playing (ensures all audio is captured)
