@@ -487,52 +487,64 @@ export class AudioToVideoConverter {
       let frameIndex = 0;
       const frameInterval = 1000 / fps; // milliseconds per frame (e.g., 33.33ms for 30fps)
 
+      this.log(`Starting frame rendering loop: ${totalFrames} frames at ${fps} fps (${frameInterval.toFixed(2)}ms per frame)`);
+
       await new Promise<void>((resolve, reject) => {
         const intervalId = setInterval(() => {
-          // Check for cancellation
-          if (this.isCancelled) {
+          try {
+            // Check for cancellation
+            if (this.isCancelled) {
+              this.log(`Rendering cancelled at frame ${frameIndex}/${totalFrames}`);
+              clearInterval(intervalId);
+              reject(new Error('Conversion cancelled by user'));
+              return;
+            }
+
+            if (frameIndex >= totalFrames) {
+              // All frames rendered
+              this.log(`All ${totalFrames} frames rendered`);
+              clearInterval(intervalId);
+              resolve();
+              return;
+            }
+
+            // Calculate current audio time for this frame
+            const currentTime = frameIndex / fps;
+            const sampleIndex = Math.floor(currentTime * sampleRate);
+
+            // Generate visualization data from audio buffer
+            const { timeDomainData, frequencyData } = this.analyzeAudioFrame(
+              channelData,
+              sampleIndex,
+              fftSize,
+              sampleRate
+            );
+
+            const data: VisualizationData = {
+              timeDomainData,
+              frequencyData,
+              timestamp: currentTime * 1000,
+              width: canvas.width,
+              height: canvas.height,
+              sampleRate,
+              fftSize,
+            };
+
+            visualizer.draw(ctx, data);
+
+            // Report progress every 10% or for first/last frames
+            if (onProgress && (frameIndex % Math.floor(totalFrames / 10) === 0 || frameIndex === totalFrames - 1)) {
+              const progress = frameIndex / totalFrames;
+              this.log(`Rendering progress: ${(progress * 100).toFixed(1)}% (frame ${frameIndex}/${totalFrames})`);
+              onProgress(progress);
+            }
+
+            frameIndex++;
+          } catch (error) {
+            this.log(`Error in rendering loop at frame ${frameIndex}:`, error);
             clearInterval(intervalId);
-            reject(new Error('Conversion cancelled by user'));
-            return;
+            reject(error);
           }
-
-          if (frameIndex >= totalFrames) {
-            // All frames rendered
-            clearInterval(intervalId);
-            resolve();
-            return;
-          }
-
-          // Calculate current audio time for this frame
-          const currentTime = frameIndex / fps;
-          const sampleIndex = Math.floor(currentTime * sampleRate);
-
-          // Generate visualization data from audio buffer
-          const { timeDomainData, frequencyData } = this.analyzeAudioFrame(
-            channelData,
-            sampleIndex,
-            fftSize,
-            sampleRate
-          );
-
-          const data: VisualizationData = {
-            timeDomainData,
-            frequencyData,
-            timestamp: currentTime * 1000,
-            width: canvas.width,
-            height: canvas.height,
-            sampleRate,
-            fftSize,
-          };
-
-          visualizer.draw(ctx, data);
-
-          // Report progress
-          if (onProgress) {
-            onProgress(frameIndex / totalFrames);
-          }
-
-          frameIndex++;
         }, frameInterval);
       });
 
@@ -541,7 +553,9 @@ export class AudioToVideoConverter {
       const elapsedRenderTime = performance.now() - startRealTime;
       const remainingAudioTime = Math.max(0, expectedDuration - elapsedRenderTime + 1000);
 
-      this.log(`Waiting for audio to complete (${remainingAudioTime}ms remaining)...`);
+      this.log(`Frame rendering complete. Elapsed: ${elapsedRenderTime.toFixed(0)}ms, Expected duration: ${expectedDuration.toFixed(0)}ms`);
+      this.log(`Audio element state: currentTime=${audioElement.currentTime.toFixed(2)}s, duration=${audioElement.duration.toFixed(2)}s, ended=${audioElement.ended}, paused=${audioElement.paused}`);
+      this.log(`Waiting for audio to complete (${remainingAudioTime.toFixed(0)}ms remaining)...`);
 
       await new Promise<void>(resolve => {
         if (audioElement.ended) {
@@ -558,7 +572,10 @@ export class AudioToVideoConverter {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Stop recording and get blob
+      this.log('Stopping MediaRecorder...');
       const blob = await videoRecorder.stop();
+
+      this.log(`MediaRecorder stopped. Blob type: ${blob.type}, size: ${blob.size} bytes`);
 
       cleanup();
 
@@ -569,7 +586,12 @@ export class AudioToVideoConverter {
       this.log('Offline conversion complete, blob size:', blob.size, 'bytes');
 
       if (blob.size === 0) {
-        throw new Error('Export failed: video blob is empty. This may happen if autoplay is blocked by the browser.');
+        throw new Error('Export failed: video blob is empty (0 bytes). Possible causes:\n' +
+          '1. MediaRecorder did not receive any data from canvas or audio streams\n' +
+          '2. Browser autoplay policy blocked audio playback\n' +
+          '3. Canvas rendering failed or was empty\n' +
+          '4. MediaRecorder encoding failed\n' +
+          'Check console logs above for more details.');
       }
 
       return blob;

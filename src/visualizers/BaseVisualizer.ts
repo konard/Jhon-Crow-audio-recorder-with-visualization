@@ -145,7 +145,9 @@ export abstract class BaseVisualizer implements Visualizer {
    * Draw background (color or image)
    */
   protected drawBackground(ctx: CanvasRenderingContext2D, data: VisualizationData): void {
-    if (!this.options.drawBackground || this._skipBackgroundForMirror) {
+    // Skip background if mirror horizontal is enabled (will be drawn later in restoreTransform)
+    const mirrorHorizontal = this.options.mirrorHorizontal ?? false;
+    if (!this.options.drawBackground || mirrorHorizontal) {
       return;
     }
 
@@ -410,13 +412,11 @@ export abstract class BaseVisualizer implements Visualizer {
 
   // Temporary canvas for horizontal mirror mode (reused to avoid allocation overhead)
   private _mirrorTempCanvas: HTMLCanvasElement | null = null;
-  // Flag to skip background drawing when preparing for mirror mode
-  private _skipBackgroundForMirror = false;
 
   /**
    * Apply position offset and scale transformation to context
    * Call this before drawing visualization, and call restoreTransform() after
-   * For mirrorHorizontal mode, sets flag to skip background drawing
+   * For mirrorHorizontal mode, clips drawing to left half only
    */
   protected applyTransform(ctx: CanvasRenderingContext2D, data?: { width: number; height: number }): void {
     const offsetX = this.options.offsetX ?? 0;
@@ -428,10 +428,8 @@ export abstract class BaseVisualizer implements Visualizer {
     if (needsTransform) {
       ctx.save();
 
-      // For horizontal mirror mode, skip background - we'll render it separately
+      // For horizontal mirror mode, clip to left half so visualization only draws there
       if (mirrorHorizontal && data) {
-        this._skipBackgroundForMirror = true;
-        // Clip to left half so visualization only draws there
         const halfWidth = Math.floor(data.width / 2);
         ctx.rect(0, 0, halfWidth, data.height);
         ctx.clip();
@@ -464,10 +462,8 @@ export abstract class BaseVisualizer implements Visualizer {
       ctx.restore();
 
       // For horizontal mirror: the main canvas has visualization (no background) on left half
-      // We need to mirror it and add the background
+      // We need to mirror it and add the background back
       if (mirrorHorizontal && data) {
-        this._skipBackgroundForMirror = false; // Reset flag
-
         const { width, height } = data;
         const halfWidth = Math.floor(width / 2);
 
