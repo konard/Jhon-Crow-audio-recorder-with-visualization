@@ -142,44 +142,52 @@ export abstract class BaseVisualizer implements Visualizer {
   }
 
   /**
-   * Draw background (color or image)
+   * Internal method to draw background without mirror horizontal check
    */
-  protected drawBackground(ctx: CanvasRenderingContext2D, data: VisualizationData): void {
-    // Skip background if mirror horizontal is enabled (will be drawn later in restoreTransform)
-    const mirrorHorizontal = this.options.mirrorHorizontal ?? false;
-    if (!this.options.drawBackground || mirrorHorizontal) {
-      return;
-    }
-
+  private _drawBackgroundInternal(ctx: CanvasRenderingContext2D, width: number, height: number): void {
     if (this.backgroundImageElement) {
       // Draw background image based on size mode
       const mode = this.options.backgroundSizeMode || 'cover';
       switch (mode) {
         case 'cover':
-          this.drawImageCover(ctx, this.backgroundImageElement, data.width, data.height);
+          this.drawImageCover(ctx, this.backgroundImageElement, width, height);
           break;
         case 'contain':
-          this.drawImageContain(ctx, this.backgroundImageElement, data.width, data.height);
+          this.drawImageContain(ctx, this.backgroundImageElement, width, height);
           break;
         case 'stretch':
-          this.drawImageStretch(ctx, this.backgroundImageElement, data.width, data.height);
+          this.drawImageStretch(ctx, this.backgroundImageElement, width, height);
           break;
         case 'tile':
-          this.drawImageTile(ctx, this.backgroundImageElement, data.width, data.height);
+          this.drawImageTile(ctx, this.backgroundImageElement, width, height);
           break;
         case 'center':
-          this.drawImageCenter(ctx, this.backgroundImageElement, data.width, data.height);
+          this.drawImageCenter(ctx, this.backgroundImageElement, width, height);
           break;
         case 'custom':
-          this.drawImageCustom(ctx, this.backgroundImageElement, data.width, data.height);
+          this.drawImageCustom(ctx, this.backgroundImageElement, width, height);
           break;
         default:
-          this.drawImageCover(ctx, this.backgroundImageElement, data.width, data.height);
+          this.drawImageCover(ctx, this.backgroundImageElement, width, height);
       }
     } else {
       ctx.fillStyle = this.options.backgroundColor!;
-      ctx.fillRect(0, 0, data.width, data.height);
+      ctx.fillRect(0, 0, width, height);
     }
+  }
+
+  /**
+   * Draw background (color or image)
+   */
+  protected drawBackground(ctx: CanvasRenderingContext2D, data: VisualizationData): void {
+    // Skip background if mirror horizontal is enabled - it will be added in restoreTransform
+    // after visualization is extracted, to avoid background flickering and duplication
+    const mirrorHorizontal = this.options.mirrorHorizontal ?? false;
+    if (!this.options.drawBackground || mirrorHorizontal) {
+      return;
+    }
+
+    this._drawBackgroundInternal(ctx, data.width, data.height);
   }
 
   /**
@@ -461,8 +469,8 @@ export abstract class BaseVisualizer implements Visualizer {
     if (needsTransform) {
       ctx.restore();
 
-      // For horizontal mirror: the main canvas has visualization (no background) on left half
-      // We need to mirror it and add the background back
+      // For horizontal mirror: the main canvas has visualization ONLY on left half (no background yet)
+      // We extract it, then composite it with background to avoid flickering
       if (mirrorHorizontal && data) {
         const { width, height } = data;
         const halfWidth = Math.floor(width / 2);
@@ -484,13 +492,17 @@ export abstract class BaseVisualizer implements Visualizer {
           0, 0, halfWidth, height      // dest: temp canvas
         );
 
-        // Clear the entire main canvas
+        // Clear the entire canvas and draw background ONCE
         ctx.clearRect(0, 0, width, height);
 
-        // Draw the background (full width, not mirrored)
-        // Note: data is actually VisualizationData but typed as { width, height } in signature
-        this.drawBackground(ctx, data as VisualizationData);
-        this.applyLayerEffect(ctx, data as VisualizationData);
+        // Draw background if enabled (bypass mirror horizontal check using internal method)
+        if (this.options.drawBackground) {
+          this._drawBackgroundInternal(ctx, width, height);
+        }
+
+        // Apply layer effects to background
+        const visualizationData = data as VisualizationData;
+        this.applyLayerEffect(ctx, visualizationData);
 
         // Draw visualization on RIGHT half (from center to right edge)
         ctx.drawImage(

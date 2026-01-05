@@ -480,9 +480,8 @@ export class AudioToVideoConverter {
     };
 
     try {
-      // Use setInterval-based rendering for reliable frame delivery
-      // Unlike requestAnimationFrame, setInterval is not throttled when window is blurred/minimized
-      // This ensures MediaRecorder receives a steady stream of frames
+      // Use requestAnimationFrame-based rendering with manual frame rate control
+      // This ensures proper canvas stream capture while maintaining precise timing
       const startRealTime = performance.now();
       let frameIndex = 0;
       const frameInterval = 1000 / fps; // milliseconds per frame (e.g., 33.33ms for 30fps)
@@ -490,12 +489,13 @@ export class AudioToVideoConverter {
       this.log(`Starting frame rendering loop: ${totalFrames} frames at ${fps} fps (${frameInterval.toFixed(2)}ms per frame)`);
 
       await new Promise<void>((resolve, reject) => {
-        const intervalId = setInterval(() => {
+        let lastFrameTime = startRealTime;
+
+        const renderFrame = (currentTime: number): void => {
           try {
             // Check for cancellation
             if (this.isCancelled) {
               this.log(`Rendering cancelled at frame ${frameIndex}/${totalFrames}`);
-              clearInterval(intervalId);
               reject(new Error('Conversion cancelled by user'));
               return;
             }
@@ -503,49 +503,59 @@ export class AudioToVideoConverter {
             if (frameIndex >= totalFrames) {
               // All frames rendered
               this.log(`All ${totalFrames} frames rendered`);
-              clearInterval(intervalId);
               resolve();
               return;
             }
 
-            // Calculate current audio time for this frame
-            const currentTime = frameIndex / fps;
-            const sampleIndex = Math.floor(currentTime * sampleRate);
+            // Check if enough time has elapsed for the next frame
+            const elapsed = currentTime - lastFrameTime;
+            if (elapsed >= frameInterval) {
+              lastFrameTime = currentTime;
 
-            // Generate visualization data from audio buffer
-            const { timeDomainData, frequencyData } = this.analyzeAudioFrame(
-              channelData,
-              sampleIndex,
-              fftSize,
-              sampleRate
-            );
+              // Calculate current audio time for this frame
+              const audioTime = frameIndex / fps;
+              const sampleIndex = Math.floor(audioTime * sampleRate);
 
-            const data: VisualizationData = {
-              timeDomainData,
-              frequencyData,
-              timestamp: currentTime * 1000,
-              width: canvas.width,
-              height: canvas.height,
-              sampleRate,
-              fftSize,
-            };
+              // Generate visualization data from audio buffer
+              const { timeDomainData, frequencyData } = this.analyzeAudioFrame(
+                channelData,
+                sampleIndex,
+                fftSize,
+                sampleRate
+              );
 
-            visualizer.draw(ctx, data);
+              const data: VisualizationData = {
+                timeDomainData,
+                frequencyData,
+                timestamp: audioTime * 1000,
+                width: canvas.width,
+                height: canvas.height,
+                sampleRate,
+                fftSize,
+              };
 
-            // Report progress every 10% or for first/last frames
-            if (onProgress && (frameIndex % Math.floor(totalFrames / 10) === 0 || frameIndex === totalFrames - 1)) {
-              const progress = frameIndex / totalFrames;
-              this.log(`Rendering progress: ${(progress * 100).toFixed(1)}% (frame ${frameIndex}/${totalFrames})`);
-              onProgress(progress);
+              visualizer.draw(ctx, data);
+
+              // Report progress every 10% or for first/last frames
+              if (onProgress && (frameIndex % Math.floor(totalFrames / 10) === 0 || frameIndex === totalFrames - 1)) {
+                const progress = frameIndex / totalFrames;
+                this.log(`Rendering progress: ${(progress * 100).toFixed(1)}% (frame ${frameIndex}/${totalFrames})`);
+                onProgress(progress);
+              }
+
+              frameIndex++;
             }
 
-            frameIndex++;
+            // Continue to next frame
+            requestAnimationFrame(renderFrame);
           } catch (error) {
             this.log(`Error in rendering loop at frame ${frameIndex}:`, error);
-            clearInterval(intervalId);
             reject(error);
           }
-        }, frameInterval);
+        };
+
+        // Start the rendering loop
+        requestAnimationFrame(renderFrame);
       });
 
       // Wait for the audio to finish playing (ensures all audio is captured)
