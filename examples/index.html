@@ -142,6 +142,10 @@
       /* Limit display size while keeping full HD recording quality */
       max-height: 60vh;
       object-fit: contain;
+      /* Ensure smooth high-quality scaling when canvas is displayed smaller than its resolution */
+      image-rendering: auto;
+      image-rendering: smooth; /* Modern browsers - uses bicubic interpolation */
+      image-rendering: high-quality; /* Firefox */
     }
 
     #visualizer:hover {
