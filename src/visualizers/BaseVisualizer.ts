@@ -408,14 +408,15 @@ export abstract class BaseVisualizer implements Visualizer {
     return gradient;
   }
 
-  // Temporary canvas for horizontal mirror mode (reused to avoid allocation overhead)
+  // Temporary canvases for horizontal mirror mode (reused to avoid allocation overhead)
   private _mirrorTempCanvas: HTMLCanvasElement | null = null;
+  private _mirrorBackgroundCanvas: HTMLCanvasElement | null = null;
 
   /**
    * Apply position offset and scale transformation to context
    * Call this before drawing visualization, and call restoreTransform() after
-   * When mirrorHorizontal is enabled, visualization is drawn on the full canvas,
-   * then the entire canvas (background + visualization) is mirrored from center
+   * When mirrorHorizontal is enabled, the background is saved first, then visualization
+   * is drawn and will be mirrored in restoreTransform()
    */
   protected applyTransform(ctx: CanvasRenderingContext2D, data?: { width: number; height: number }): void {
     const offsetX = this.options.offsetX ?? 0;
@@ -426,25 +427,37 @@ export abstract class BaseVisualizer implements Visualizer {
 
     if (needsTransform) {
       ctx.save();
+
+      // For horizontal mirror mode, save the background before drawing visualization
+      if (mirrorHorizontal && data) {
+        const { width, height } = data;
+
+        // Save current canvas state (background) to temp canvas
+        if (!this._mirrorBackgroundCanvas) {
+          this._mirrorBackgroundCanvas = document.createElement('canvas');
+        }
+        this._mirrorBackgroundCanvas.width = width;
+        this._mirrorBackgroundCanvas.height = height;
+        const bgCtx = this._mirrorBackgroundCanvas.getContext('2d');
+        if (bgCtx) {
+          bgCtx.drawImage(ctx.canvas, 0, 0);
+        }
+
+        // Clip to left half (from 0 to centerX) for visualization
+        const centerX = width / 2;
+        ctx.beginPath();
+        ctx.rect(0, 0, centerX, height);
+        ctx.clip();
+      }
+
       // If we have scale and dimensions, scale around center
       if ((scale !== 1 || mirrorHorizontal) && data) {
         const centerX = data.width / 2;
         const centerY = data.height / 2;
 
-        // For horizontal mirror mode, we draw the visualization normally
-        // (taking up the full width), then in restoreTransform we'll:
-        // 1. Take the left half of the canvas
-        // 2. Mirror it to the right half
-        // This creates a symmetrical effect with the visualization diverging from center
-        if (mirrorHorizontal) {
-          ctx.translate(centerX, centerY);
-          ctx.scale(scale, scale);
-          ctx.translate(-centerX + offsetX / scale, -centerY + offsetY / scale);
-        } else {
-          ctx.translate(centerX, centerY);
-          ctx.scale(scale, scale);
-          ctx.translate(-centerX + offsetX / scale, -centerY + offsetY / scale);
-        }
+        ctx.translate(centerX, centerY);
+        ctx.scale(scale, scale);
+        ctx.translate(-centerX + offsetX / scale, -centerY + offsetY / scale);
       } else if (offsetX !== 0 || offsetY !== 0) {
         ctx.translate(offsetX, offsetY);
       }
@@ -454,8 +467,8 @@ export abstract class BaseVisualizer implements Visualizer {
   /**
    * Restore context transformation state and draw mirrored copy if horizontal mirror is enabled
    * Call this after drawing visualization if applyTransform() was called
-   * The mirror takes the left half of the canvas (background + visualization)
-   * and mirrors it to the right half, creating a symmetrical diverging effect
+   * The mirror extracts the visualization from the left half and mirrors it to the right half.
+   * The background is NOT mirrored, only the visualization.
    */
   protected restoreTransform(ctx: CanvasRenderingContext2D, data?: { width: number; height: number }): void {
     const offsetX = this.options.offsetX ?? 0;
@@ -467,13 +480,13 @@ export abstract class BaseVisualizer implements Visualizer {
     if (needsTransform) {
       ctx.restore();
 
-      // Draw horizontally mirrored copy - takes left half and mirrors to right
-      // Both background AND visualization are mirrored together
+      // Draw horizontally mirrored copy - extract visualization and mirror it
+      // ONLY the visualization is mirrored, not the background
       if (mirrorHorizontal && data) {
         const { width, height } = data;
         const centerX = width / 2;
 
-        // Get or create temp canvas for the left half
+        // Get or create temp canvas for the left half visualization
         if (!this._mirrorTempCanvas) {
           this._mirrorTempCanvas = document.createElement('canvas');
         }
@@ -482,12 +495,20 @@ export abstract class BaseVisualizer implements Visualizer {
         const tempCtx = this._mirrorTempCanvas.getContext('2d');
         if (!tempCtx) return;
 
-        // Copy the left half of the canvas to temp
+        // Copy the left half of the canvas (background + visualization)
         tempCtx.drawImage(
           ctx.canvas,
           0, 0, centerX, height,  // source: left half
           0, 0, centerX, height   // dest: full temp canvas
         );
+
+        // Restore the full background
+        if (this._mirrorBackgroundCanvas) {
+          ctx.drawImage(this._mirrorBackgroundCanvas, 0, 0);
+        }
+
+        // Draw the left half visualization back
+        ctx.drawImage(this._mirrorTempCanvas, 0, 0);
 
         // Draw the mirrored left half onto the right half
         ctx.save();
@@ -522,5 +543,6 @@ export abstract class BaseVisualizer implements Visualizer {
     this.foregroundImageElement = null;
     this.imageLoadPromises = [];
     this._mirrorTempCanvas = null;
+    this._mirrorBackgroundCanvas = null;
   }
 }
