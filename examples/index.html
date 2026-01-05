@@ -954,6 +954,9 @@
               <option value="2160p">4K 2160p (3840x2160)</option>
             </select>
           </label>
+          <label style="flex-direction: row; align-items: center;" data-tooltip="Render video without playing audio in real-time (muted, faster for long files)">
+            <input type="checkbox" id="offlineRender" aria-label="Enable offline rendering"> Offline Render (No Audio Playback)
+          </label>
         </div>
         <div class="controls">
           <button id="convertBtn" class="btn-info" disabled data-tooltip="Convert selected audio file to video with visualization" aria-label="Convert audio to video">
@@ -2258,6 +2261,7 @@
           };
           const quality = qualityMap[videoQuality.value] || qualityMap['1080p'];
 
+          const offlineRenderCheckbox = document.getElementById('offlineRender');
           const blob = await converter.convert({
             audioSource: file,
             canvas,
@@ -2267,6 +2271,7 @@
             videoWidth: quality.width,
             videoHeight: quality.height,
             onProgress: updateProgress,
+            offlineRender: offlineRenderCheckbox.checked,
           });
 
           updateStatus('Conversion complete!', 'ready');

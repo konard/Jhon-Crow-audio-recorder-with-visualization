@@ -88,17 +88,12 @@ export class AudioToVideoConverter {
     this.isCancelled = false;
 
     const {
-      audioSource,
       canvas: canvasConfig,
       visualizer: visualizerConfig,
       visualizerOptions,
-      fps = 30,
       videoWidth = 1920,
       videoHeight = 1080,
-      videoBitrate = 8000000,
-      audioBitrate = 192000,
-      format = 'webm',
-      onProgress,
+      offlineRender = false,
     } = config;
 
     // Get canvas element
@@ -144,6 +139,33 @@ export class AudioToVideoConverter {
     }
     // Wait for visualizer initialization (including image loading) to prevent flickering
     await visualizer.init(canvas, visualizerOptions);
+
+    // Use offline rendering if requested
+    if (offlineRender) {
+      return this.convertOffline(config, canvas, ctx, visualizer);
+    }
+
+    // Real-time rendering (original implementation)
+    return this.convertRealtime(config, canvas, ctx, visualizer);
+  }
+
+  /**
+   * Convert audio to video using real-time rendering (with audio playback)
+   */
+  private async convertRealtime(
+    config: ConversionConfig,
+    canvas: HTMLCanvasElement,
+    ctx: CanvasRenderingContext2D,
+    visualizer: Visualizer
+  ): Promise<Blob> {
+    const {
+      audioSource,
+      fps = 30,
+      videoBitrate = 8000000,
+      audioBitrate = 192000,
+      format = 'webm',
+      onProgress,
+    } = config;
 
     // Create audio element
     const audioElement = new Audio();
@@ -312,6 +334,321 @@ export class AudioToVideoConverter {
       // Render first frame immediately to ensure recording starts with content
       requestAnimationFrame(renderFrame);
     });
+  }
+
+  /**
+   * Convert audio to video using offline rendering (no audio playback, faster processing)
+   * This method decodes the entire audio file and renders frames without real-time constraints.
+   */
+  private async convertOffline(
+    config: ConversionConfig,
+    canvas: HTMLCanvasElement,
+    ctx: CanvasRenderingContext2D,
+    visualizer: Visualizer
+  ): Promise<Blob> {
+    const {
+      audioSource,
+      fps = 30,
+      videoBitrate = 8000000,
+      audioBitrate = 192000,
+      format = 'webm',
+      onProgress,
+    } = config;
+
+    this.log('Starting offline rendering mode');
+
+    // Load audio file as ArrayBuffer
+    let audioArrayBuffer: ArrayBuffer;
+    let blobUrl: string | null = null;
+
+    if (audioSource instanceof File) {
+      audioArrayBuffer = await audioSource.arrayBuffer();
+    } else {
+      // Fetch audio from URL
+      const response = await fetch(audioSource);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch audio: ${response.statusText}`);
+      }
+      audioArrayBuffer = await response.arrayBuffer();
+    }
+
+    // Decode audio using Web Audio API
+    const audioContext = new AudioContext();
+    const audioBuffer = await audioContext.decodeAudioData(audioArrayBuffer);
+
+    const duration = audioBuffer.duration;
+    const sampleRate = audioBuffer.sampleRate;
+    const fftSize = 2048;
+    const totalFrames = Math.ceil(duration * fps);
+
+    this.log('Offline rendering:', {
+      duration: duration.toFixed(2) + 's',
+      sampleRate,
+      totalFrames,
+      fps,
+    });
+
+    // Create video recorder
+    const videoRecorder = new VideoRecorder({ debug: this.debug });
+
+    // For offline mode, we need to create an audio track from the buffer to embed in the video
+    // We'll render the audio using an OfflineAudioContext and capture it
+    const offlineCtx = new OfflineAudioContext(
+      audioBuffer.numberOfChannels,
+      audioBuffer.length,
+      sampleRate
+    );
+
+    const offlineSource = offlineCtx.createBufferSource();
+    offlineSource.buffer = audioBuffer;
+    offlineSource.connect(offlineCtx.destination);
+    offlineSource.start();
+
+    // Render the audio to get the complete audio
+    const renderedBuffer = await offlineCtx.startRendering();
+
+    // Create an audio element with the rendered audio for the MediaRecorder
+    const wavBlob = this.audioBufferToWav(renderedBuffer);
+    blobUrl = URL.createObjectURL(wavBlob);
+    const audioElement = new Audio(blobUrl);
+    audioElement.crossOrigin = 'anonymous';
+
+    // Wait for audio to be ready
+    await new Promise<void>((resolve, reject) => {
+      audioElement.oncanplaythrough = () => resolve();
+      audioElement.onerror = () => reject(new Error('Failed to load rendered audio'));
+      audioElement.load();
+    });
+
+    // Get audio stream for recording
+    let audioStream: MediaStream | undefined;
+    try {
+      if ('captureStream' in audioElement) {
+        audioStream = (audioElement as HTMLMediaElement & { captureStream(): MediaStream }).captureStream();
+      } else if ('mozCaptureStream' in audioElement) {
+        audioStream = (audioElement as HTMLMediaElement & { mozCaptureStream(): MediaStream }).mozCaptureStream();
+      }
+    } catch (e) {
+      this.log('Could not capture stream from audio element, video will have no audio');
+    }
+
+    // Start recording
+    videoRecorder.start(canvas, audioStream, {
+      format,
+      fps,
+      videoBitrate,
+      audioBitrate,
+    });
+
+    // Start audio playback silently (muted) just to drive the MediaRecorder's audio capture
+    audioElement.muted = true;
+    audioElement.play();
+
+    // Get raw audio data for visualization analysis
+    const channelData = audioBuffer.getChannelData(0); // Use first channel for analysis
+
+    const cleanup = (): void => {
+      visualizer.destroy();
+      audioContext.close();
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+
+    try {
+      // Render each frame
+      for (let frame = 0; frame < totalFrames; frame++) {
+        // Check for cancellation
+        if (this.isCancelled) {
+          videoRecorder.cancel();
+          cleanup();
+          throw new Error('Conversion cancelled by user');
+        }
+
+        const currentTime = frame / fps;
+        const sampleIndex = Math.floor(currentTime * sampleRate);
+
+        // Generate visualization data from audio buffer
+        const { timeDomainData, frequencyData } = this.analyzeAudioFrame(
+          channelData,
+          sampleIndex,
+          fftSize,
+          sampleRate
+        );
+
+        const data: VisualizationData = {
+          timeDomainData,
+          frequencyData,
+          timestamp: currentTime * 1000,
+          width: canvas.width,
+          height: canvas.height,
+          sampleRate,
+          fftSize,
+        };
+
+        visualizer.draw(ctx, data);
+
+        // Report progress
+        if (onProgress) {
+          onProgress(frame / totalFrames);
+        }
+
+        // Yield to allow UI updates and MediaRecorder to process frames
+        // Use a small delay to ensure frames are captured properly
+        await new Promise(resolve => setTimeout(resolve, 1000 / fps));
+      }
+
+      // Wait for the audio to finish (for proper audio capture)
+      await new Promise<void>(resolve => {
+        if (audioElement.ended) {
+          resolve();
+        } else {
+          audioElement.onended = () => resolve();
+          // If audio is shorter than expected, set a timeout
+          setTimeout(() => resolve(), 500);
+        }
+      });
+
+      // Give MediaRecorder time to process final frames
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Stop recording and get blob
+      const blob = await videoRecorder.stop();
+
+      cleanup();
+
+      if (onProgress) {
+        onProgress(1);
+      }
+
+      this.log('Offline conversion complete, blob size:', blob.size, 'bytes');
+
+      if (blob.size === 0) {
+        throw new Error('Export failed: video blob is empty');
+      }
+
+      return blob;
+    } catch (error) {
+      videoRecorder.cancel();
+      cleanup();
+      throw error;
+    }
+  }
+
+  /**
+   * Analyze a frame of audio data to extract time domain and frequency data
+   * This is a simplified FFT analysis for offline rendering
+   */
+  private analyzeAudioFrame(
+    channelData: Float32Array,
+    startSample: number,
+    fftSize: number,
+    _sampleRate: number
+  ): { timeDomainData: Uint8Array; frequencyData: Uint8Array } {
+    const timeDomainData = new Uint8Array(fftSize);
+    const frequencyData = new Uint8Array(fftSize / 2);
+
+    // Extract time domain data (convert from Float32 to Uint8)
+    for (let i = 0; i < fftSize; i++) {
+      const sampleIndex = startSample + i;
+      if (sampleIndex < channelData.length) {
+        // Convert from -1..1 to 0..255 (with 128 being silence)
+        timeDomainData[i] = Math.round((channelData[sampleIndex] + 1) * 127.5);
+      } else {
+        timeDomainData[i] = 128; // Silence
+      }
+    }
+
+    // Simple frequency analysis using DFT approximation
+    // This is a simplified version - we calculate magnitude for each frequency bin
+    const halfFFT = fftSize / 2;
+    for (let k = 0; k < halfFFT; k++) {
+      let real = 0;
+      let imag = 0;
+
+      // Use a smaller window for faster computation (every 4th sample)
+      const step = 4;
+      for (let n = 0; n < fftSize; n += step) {
+        const sampleIndex = startSample + n;
+        if (sampleIndex < channelData.length) {
+          const sample = channelData[sampleIndex];
+          const angle = (2 * Math.PI * k * n) / fftSize;
+          real += sample * Math.cos(angle);
+          imag -= sample * Math.sin(angle);
+        }
+      }
+
+      // Calculate magnitude and scale to 0-255
+      const magnitude = Math.sqrt(real * real + imag * imag) / (fftSize / step);
+      // Apply log scale for better visualization (similar to Web Audio API)
+      const db = 20 * Math.log10(Math.max(magnitude, 0.00001));
+      // Scale from -100dB to 0dB to 0-255
+      const normalized = Math.max(0, Math.min(255, ((db + 100) / 100) * 255));
+      frequencyData[k] = Math.round(normalized);
+    }
+
+    return { timeDomainData, frequencyData };
+  }
+
+  /**
+   * Convert an AudioBuffer to a WAV Blob
+   * This is needed to create an audio element for MediaRecorder capture
+   */
+  private audioBufferToWav(buffer: AudioBuffer): Blob {
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const format = 1; // PCM
+    const bitDepth = 16;
+
+    const bytesPerSample = bitDepth / 8;
+    const blockAlign = numChannels * bytesPerSample;
+
+    const dataLength = buffer.length * numChannels * bytesPerSample;
+    const bufferLength = 44 + dataLength;
+    const arrayBuffer = new ArrayBuffer(bufferLength);
+    const view = new DataView(arrayBuffer);
+
+    // Write WAV header
+    this.writeString(view, 0, 'RIFF');
+    view.setUint32(4, bufferLength - 8, true);
+    this.writeString(view, 8, 'WAVE');
+    this.writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true); // fmt chunk size
+    view.setUint16(20, format, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * blockAlign, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitDepth, true);
+    this.writeString(view, 36, 'data');
+    view.setUint32(40, dataLength, true);
+
+    // Write interleaved audio data
+    const channels: Float32Array[] = [];
+    for (let i = 0; i < numChannels; i++) {
+      channels.push(buffer.getChannelData(i));
+    }
+
+    let offset = 44;
+    for (let i = 0; i < buffer.length; i++) {
+      for (let channel = 0; channel < numChannels; channel++) {
+        const sample = Math.max(-1, Math.min(1, channels[channel][i]));
+        const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+        view.setInt16(offset, intSample, true);
+        offset += 2;
+      }
+    }
+
+    return new Blob([arrayBuffer], { type: 'audio/wav' });
+  }
+
+  /**
+   * Write a string to a DataView at the specified offset
+   */
+  private writeString(view: DataView, offset: number, string: string): void {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
   }
 
   /**

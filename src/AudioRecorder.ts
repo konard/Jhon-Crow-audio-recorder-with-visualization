@@ -136,6 +136,12 @@ export class AudioRecorder extends EventEmitter<AudioRecorderEvents> {
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
 
+    // Set up window blur/focus handlers for minimization detection
+    this.handleWindowBlur = this.handleWindowBlur.bind(this);
+    this.handleWindowFocus = this.handleWindowFocus.bind(this);
+    window.addEventListener('blur', this.handleWindowBlur);
+    window.addEventListener('focus', this.handleWindowFocus);
+
     this.log('AudioRecorder initialized');
   }
 
@@ -169,6 +175,44 @@ export class AudioRecorder extends EventEmitter<AudioRecorderEvents> {
 
       // Restart requestAnimationFrame if we have an active source
       if (this._sourceType !== null) {
+        this.startVisualization();
+      }
+    }
+  }
+
+  /**
+   * Handle window blur to detect minimization
+   * When window loses focus, it might be minimized, so use timer-based fallback
+   */
+  private handleWindowBlur(): void {
+    // Check if we have an active audio source that needs visualization
+    if (this._sourceType === null) {
+      return;
+    }
+
+    this.log('Window blurred, switching to hybrid visualization mode');
+
+    // Don't completely stop rAF, but ensure timer fallback is running as backup
+    // This handles cases where the window is minimized but document.hidden is false
+    this.startTimerFallback();
+  }
+
+  /**
+   * Handle window focus to restore normal visualization mode
+   */
+  private handleWindowFocus(): void {
+    // Check if we have an active audio source that needs visualization
+    if (this._sourceType === null) {
+      return;
+    }
+
+    // Only stop timer fallback if page is visible (not hidden tab)
+    if (!document.hidden) {
+      this.log('Window focused and visible, stopping timer fallback');
+      this.stopTimerFallback();
+
+      // Ensure requestAnimationFrame is running
+      if (this._sourceType !== null && this.animationFrameId === null) {
         this.startVisualization();
       }
     }
@@ -580,6 +624,9 @@ export class AudioRecorder extends EventEmitter<AudioRecorderEvents> {
   destroy(): void {
     // Remove visibility change listener
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    // Remove window blur/focus listeners
+    window.removeEventListener('blur', this.handleWindowBlur);
+    window.removeEventListener('focus', this.handleWindowFocus);
 
     this.stopVisualization();
     this.stopMicrophone();
