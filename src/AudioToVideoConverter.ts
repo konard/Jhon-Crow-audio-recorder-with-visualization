@@ -384,7 +384,6 @@ export class AudioToVideoConverter {
     const sampleRate = audioBuffer.sampleRate;
     const fftSize = 2048;
     const totalFrames = Math.ceil(duration * fps);
-    const frameInterval = 1000 / fps;
 
     this.log('Offline rendering:', {
       duration: duration.toFixed(2) + 's',
@@ -412,7 +411,19 @@ export class AudioToVideoConverter {
       audioElement.load();
     });
 
-    // Draw initial frame to canvas before starting capture
+    // Get audio stream for recording (audio must NOT be muted for capture to work)
+    let audioStream: MediaStream | undefined;
+    try {
+      if ('captureStream' in audioElement) {
+        audioStream = (audioElement as HTMLMediaElement & { captureStream(): MediaStream }).captureStream();
+      } else if ('mozCaptureStream' in audioElement) {
+        audioStream = (audioElement as HTMLMediaElement & { mozCaptureStream(): MediaStream }).mozCaptureStream();
+      }
+    } catch (e) {
+      this.log('Could not capture stream from audio element, video will have no audio');
+    }
+
+    // Draw initial frame to canvas BEFORE starting capture
     // This ensures captureStream has content to capture from the start
     const { timeDomainData: initialTimeDomain, frequencyData: initialFrequency } = this.analyzeAudioFrame(
       channelData,
@@ -430,19 +441,10 @@ export class AudioToVideoConverter {
       fftSize,
     });
 
-    // Get audio stream for recording (audio must NOT be muted for capture to work)
-    let audioStream: MediaStream | undefined;
-    try {
-      if ('captureStream' in audioElement) {
-        audioStream = (audioElement as HTMLMediaElement & { captureStream(): MediaStream }).captureStream();
-      } else if ('mozCaptureStream' in audioElement) {
-        audioStream = (audioElement as HTMLMediaElement & { mozCaptureStream(): MediaStream }).mozCaptureStream();
-      }
-    } catch (e) {
-      this.log('Could not capture stream from audio element, video will have no audio');
-    }
+    // CRITICAL: Wait a frame to ensure the canvas has rendered
+    await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
 
-    // Start recording with audio stream
+    // Start recording with audio stream AFTER initial frame is drawn
     videoRecorder.start(canvas, audioStream, {
       format,
       fps,
@@ -478,74 +480,85 @@ export class AudioToVideoConverter {
     };
 
     try {
-      // Render frames synchronized with audio playback
-      // This ensures MediaRecorder captures both video and audio properly
-      const startTime = performance.now();
-      let lastFrameTime = 0;
+      // Use requestAnimationFrame-based rendering for better performance and reliability
+      // This approach is not throttled even when tab is backgrounded (with proper setup)
+      const startRealTime = performance.now();
+      let frameIndex = 0;
 
-      for (let frame = 0; frame < totalFrames; frame++) {
-        // Check for cancellation
-        if (this.isCancelled) {
-          videoRecorder.cancel();
-          cleanup();
-          throw new Error('Conversion cancelled by user');
-        }
+      await new Promise<void>((resolve, reject) => {
+        const renderNextFrame = (): void => {
+          // Check for cancellation
+          if (this.isCancelled) {
+            reject(new Error('Conversion cancelled by user'));
+            return;
+          }
 
-        const targetTime = frame * frameInterval;
-        const currentTime = frame / fps;
-        const sampleIndex = Math.floor(currentTime * sampleRate);
+          if (frameIndex >= totalFrames) {
+            // All frames rendered
+            resolve();
+            return;
+          }
 
-        // Generate visualization data from audio buffer
-        const { timeDomainData, frequencyData } = this.analyzeAudioFrame(
-          channelData,
-          sampleIndex,
-          fftSize,
-          sampleRate
-        );
+          // Calculate current audio time for this frame
+          const currentTime = frameIndex / fps;
+          const sampleIndex = Math.floor(currentTime * sampleRate);
 
-        const data: VisualizationData = {
-          timeDomainData,
-          frequencyData,
-          timestamp: currentTime * 1000,
-          width: canvas.width,
-          height: canvas.height,
-          sampleRate,
-          fftSize,
+          // Generate visualization data from audio buffer
+          const { timeDomainData, frequencyData } = this.analyzeAudioFrame(
+            channelData,
+            sampleIndex,
+            fftSize,
+            sampleRate
+          );
+
+          const data: VisualizationData = {
+            timeDomainData,
+            frequencyData,
+            timestamp: currentTime * 1000,
+            width: canvas.width,
+            height: canvas.height,
+            sampleRate,
+            fftSize,
+          };
+
+          visualizer.draw(ctx, data);
+
+          // Report progress
+          if (onProgress) {
+            onProgress(frameIndex / totalFrames);
+          }
+
+          frameIndex++;
+
+          // Use requestAnimationFrame for next frame
+          // This ensures smooth rendering that works even when tab is backgrounded
+          requestAnimationFrame(renderNextFrame);
         };
 
-        visualizer.draw(ctx, data);
-
-        // Report progress
-        if (onProgress) {
-          onProgress(frame / totalFrames);
-        }
-
-        // Wait until it's time for the next frame
-        // This keeps video frames synchronized with the audio playback
-        const elapsed = performance.now() - startTime;
-        const waitTime = Math.max(0, targetTime - elapsed);
-
-        if (waitTime > 0) {
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-        }
-
-        lastFrameTime = performance.now() - startTime;
-      }
+        // Start rendering
+        requestAnimationFrame(renderNextFrame);
+      });
 
       // Wait for the audio to finish playing (ensures all audio is captured)
+      const expectedDuration = duration * 1000; // milliseconds
+      const elapsedRenderTime = performance.now() - startRealTime;
+      const remainingAudioTime = Math.max(0, expectedDuration - elapsedRenderTime + 1000);
+
+      this.log(`Waiting for audio to complete (${remainingAudioTime}ms remaining)...`);
+
       await new Promise<void>(resolve => {
         if (audioElement.ended) {
           resolve();
         } else {
           audioElement.onended = () => resolve();
-          // Safety timeout: audio should be done, but give extra buffer
-          const remainingTime = Math.max(0, (duration * 1000) - lastFrameTime + 500);
-          setTimeout(() => resolve(), remainingTime);
+          // Safety timeout
+          setTimeout(() => resolve(), remainingAudioTime);
         }
       });
 
-      // Give MediaRecorder time to process final frames and audio
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Give MediaRecorder extra time to process final frames and audio
+      this.log('Finalizing recording...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Stop recording and get blob
       const blob = await videoRecorder.stop();

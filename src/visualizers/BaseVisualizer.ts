@@ -465,7 +465,7 @@ export abstract class BaseVisualizer implements Visualizer {
    * Call this after drawing visualization if applyTransform() was called
    * The mirror extracts the visualization from the left half and mirrors it to both sides from center.
    * The background is NOT mirrored, only the visualization.
-   * Result: visualization diverges from center - left side goes left, right side goes right
+   * Result: visualization diverges from center - left side goes left, right side goes right (no gap)
    */
   protected restoreTransform(ctx: CanvasRenderingContext2D, data?: { width: number; height: number }): void {
     const offsetX = this.options.offsetX ?? 0;
@@ -481,9 +481,9 @@ export abstract class BaseVisualizer implements Visualizer {
       // ONLY the visualization is mirrored, not the background
       if (mirrorHorizontal && data) {
         const { width, height } = data;
-        const centerX = width / 2;
+        const centerX = Math.floor(width / 2);
 
-        // Get or create temp canvas for the left half visualization
+        // Create temp canvas for extracting visualization only
         if (!this._mirrorTempCanvas) {
           this._mirrorTempCanvas = document.createElement('canvas');
         }
@@ -492,33 +492,44 @@ export abstract class BaseVisualizer implements Visualizer {
         const tempCtx = this._mirrorTempCanvas.getContext('2d');
         if (!tempCtx) return;
 
-        // Extract the left half of the visualization (0 to centerX)
-        // Source: current canvas (background + full visualization)
-        // We need to subtract the background to get only visualization
+        // Copy the left half from current canvas (background + visualization)
         tempCtx.drawImage(
           ctx.canvas,
           0, 0, centerX, height,  // source: left half
-          0, 0, centerX, height   // dest: full temp canvas
+          0, 0, centerX, height   // dest: temp canvas
         );
 
-        // Restore the full background (not mirrored)
+        // Remove the background using destination-out composite operation
+        // This will cut out the background, leaving only the visualization
         if (this._mirrorBackgroundCanvas) {
+          tempCtx.globalCompositeOperation = 'destination-out';
+          tempCtx.drawImage(
+            this._mirrorBackgroundCanvas,
+            0, 0, centerX, height,  // source: left half of background
+            0, 0, centerX, height   // dest: temp canvas
+          );
+          tempCtx.globalCompositeOperation = 'source-over';
+        }
+
+        // Restore the full background (not mirrored) to main canvas
+        if (this._mirrorBackgroundCanvas) {
+          ctx.clearRect(0, 0, width, height);
           ctx.drawImage(this._mirrorBackgroundCanvas, 0, 0);
         }
 
-        // Now draw the left half visualization to both sides:
-        // RIGHT side (centerX to width): draw normally - this makes it start from center going right
+        // Now draw the extracted visualization on both sides from center (no gap)
+        // RIGHT side: draw normally from center going right
         ctx.drawImage(
           this._mirrorTempCanvas,
-          0, 0, centerX, height,      // source: full temp canvas
+          0, 0, centerX, height,      // source: visualization only
           centerX, 0, centerX, height // dest: right half
         );
 
-        // LEFT side (0 to centerX): draw mirrored - this makes it start from center going left
+        // LEFT side: mirror from center going left
         ctx.save();
         ctx.translate(centerX, 0);  // Move to center
         ctx.scale(-1, 1);            // Flip horizontally
-        ctx.drawImage(this._mirrorTempCanvas, 0, 0);
+        ctx.drawImage(this._mirrorTempCanvas, 0, 0); // Draw mirrored
         ctx.restore();
       }
     }
