@@ -411,7 +411,7 @@ export abstract class BaseVisualizer implements Visualizer {
   /**
    * Apply position offset and scale transformation to context
    * Call this before drawing visualization, and call restoreTransform() after
-   * When mirrorHorizontal is enabled, this shifts the visualization to the left half
+   * When mirrorHorizontal is enabled, visualization diverges from center (left goes left, right goes right)
    */
   protected applyTransform(ctx: CanvasRenderingContext2D, data?: { width: number; height: number }): void {
     const offsetX = this.options.offsetX ?? 0;
@@ -428,7 +428,8 @@ export abstract class BaseVisualizer implements Visualizer {
         const centerY = data.height / 2;
         ctx.translate(centerX, centerY);
 
-        // For horizontal mirror, we shift left to make room for the mirrored copy
+        // For horizontal mirror, we draw visualization on the left half only
+        // The mirrored copy will be drawn in restoreTransform
         if (mirrorHorizontal) {
           // Scale down to half width and shift to left quarter
           ctx.scale(scale * 0.5, scale);
@@ -446,6 +447,7 @@ export abstract class BaseVisualizer implements Visualizer {
   /**
    * Restore context transformation state and draw mirrored copy if horizontal mirror is enabled
    * Call this after drawing visualization if applyTransform() was called
+   * The mirror creates a diverging effect - visualization goes outward from center
    */
   protected restoreTransform(ctx: CanvasRenderingContext2D, data?: { width: number; height: number }): void {
     const offsetX = this.options.offsetX ?? 0;
@@ -457,28 +459,33 @@ export abstract class BaseVisualizer implements Visualizer {
     if (needsTransform) {
       ctx.restore();
 
-      // Draw horizontally mirrored copy on the right side
+      // Draw horizontally mirrored copy - visualization diverges from center
+      // Left half shows normal visualization going left, right half shows mirrored going right
       if (mirrorHorizontal && data) {
         const { width, height } = data;
         const centerX = width / 2;
 
-        // Create a temporary canvas to capture the left half
+        // Create a temporary canvas to capture only the visualization (not background)
+        // We need to capture what was just drawn on the left half
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = width;
         tempCanvas.height = height;
         const tempCtx = tempCanvas.getContext('2d');
         if (!tempCtx) return;
 
-        // Copy the current canvas to temp (this has the left half visualization)
+        // Copy the current canvas to temp
         tempCtx.drawImage(ctx.canvas, 0, 0);
 
-        // Now draw the left half mirrored to the right half
+        // Draw the left half mirrored to the right half
+        // This creates a diverging effect where visualization goes outward from center
         ctx.save();
-        ctx.translate(centerX, 0);
+        // Move to right edge and flip horizontally
+        ctx.translate(width, 0);
         ctx.scale(-1, 1);
+        // Draw left half to right side (which will appear mirrored due to scale -1)
         ctx.drawImage(tempCanvas,
           0, 0, centerX, height,  // Source: left half
-          -centerX, 0, centerX, height  // Dest: mirror to right half
+          centerX, 0, centerX, height  // Dest: right half (but flipped)
         );
         ctx.restore();
       }

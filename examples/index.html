@@ -137,7 +137,11 @@
       box-shadow: var(--shadow-lg), 0 0 40px rgba(0, 136, 255, 0.1);
       transition: box-shadow var(--transition-base), transform var(--transition-base);
       max-width: 100%;
+      width: 100%;
       height: auto;
+      /* Limit display size while keeping full HD recording quality */
+      max-height: 60vh;
+      object-fit: contain;
     }
 
     #visualizer:hover {
@@ -907,7 +911,7 @@
     <h1>Audio Recorder with Visualization</h1>
 
     <div class="canvas-container">
-      <canvas id="visualizer" width="1280" height="720"></canvas>
+      <canvas id="visualizer" width="1920" height="1080"></canvas>
     </div>
 
     <div id="status" class="status ready">Ready - Click "Start Microphone" to begin</div>
@@ -1049,7 +1053,7 @@
           Center Image (for Circular visualizer)
           <input type="file" id="centerImage" accept="image/*" aria-label="Upload center image">
         </label>
-        <label>
+        <label id="centerImageZoomLabel">
           Center Image Zoom
           <input type="range" id="centerImageZoom" min="50" max="300" value="100" step="5">
           <span id="centerImageZoomValue">100%</span>
@@ -1067,7 +1071,7 @@
           <span id="centerImageOffsetYValue">0px</span>
         </label>
         <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
-          Tip: Hold Shift and drag on canvas to move center image
+          Tip: Hold Shift and drag on canvas to move center image. Scroll over center image to zoom.
         </p>
       </div>
       <div class="option-group">
@@ -2070,17 +2074,22 @@
         if (!cropperImage) return;
 
         // Create a temporary canvas for the cropped result
+        // Use high resolution (512x512) to prevent pixelation when displayed in visualizer
         const resultCanvas = document.createElement('canvas');
         const resultCtx = resultCanvas.getContext('2d');
-        const cropSize = 200; // Size of the circular crop
+        const cropSize = 512; // Higher resolution for better quality
 
         resultCanvas.width = cropSize;
         resultCanvas.height = cropSize;
 
+        // Enable high-quality image smoothing
+        resultCtx.imageSmoothingEnabled = true;
+        resultCtx.imageSmoothingQuality = 'high';
+
         // Calculate the source rectangle from the cropper canvas
         const centerX = cropperCanvas.width / 2;
         const centerY = cropperCanvas.height / 2;
-        const cropRadius = 100; // Half of cropSize
+        const cropRadius = 100; // Half of display cropSize (200px circle in cropper UI)
 
         // Get the visible portion parameters (including drag offset)
         const scale = cropperScale;
@@ -2100,7 +2109,7 @@
         resultCtx.arc(cropSize / 2, cropSize / 2, cropSize / 2, 0, Math.PI * 2);
         resultCtx.clip();
 
-        // Draw image centered in the circle
+        // Draw image centered in the circle at high resolution
         resultCtx.drawImage(
           cropperImage,
           srcCenterX - srcRadius,
@@ -2114,8 +2123,8 @@
         );
         resultCtx.restore();
 
-        // Convert to data URL and save
-        const croppedDataUrl = resultCanvas.toDataURL('image/png');
+        // Convert to data URL and save with high quality
+        const croppedDataUrl = resultCanvas.toDataURL('image/png', 1.0);
         currentCenterImageUrl = croppedDataUrl;
         recorder.setVisualizerOptions({ custom: { centerImage: croppedDataUrl } });
         saveSettings(getCurrentSettings());
@@ -2412,6 +2421,67 @@
         if (canvasDragging) {
           canvasDragging = false;
           saveSettings(getCurrentSettings());
+        }
+      });
+
+      // Helper function to check if mouse is over center image area (for circular visualizer)
+      function isMouseOverCenterImage(e) {
+        if (visualizerSelect.value !== 'circular' || !currentCenterImageUrl) {
+          return false;
+        }
+
+        // Get canvas bounding rect to convert page coordinates to canvas coordinates
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const canvasX = (e.clientX - rect.left) * scaleX;
+        const canvasY = (e.clientY - rect.top) * scaleY;
+
+        // Calculate center and radius of the center image area
+        // These should match the CircularVisualizer's center image positioning
+        const centerX = canvas.width / 2 + (parseInt(offsetX.value) || 0);
+        const centerY = canvas.height / 2 + (parseInt(offsetY.value) || 0);
+        const scale = (parseInt(visualizationScale.value) || 100) / 100;
+        const minDimension = Math.min(canvas.width, canvas.height) * scale;
+        const innerRadius = 0.3 * minDimension; // matches CircularVisualizer innerRadius
+        const centerRadius = innerRadius * 0.9; // matches center circle radius
+
+        // Check if mouse is within the center circle
+        const distance = Math.sqrt((canvasX - centerX) ** 2 + (canvasY - centerY) ** 2);
+        return distance <= centerRadius;
+      }
+
+      // Add scroll-to-zoom for center image when hovering over it
+      canvas.addEventListener('wheel', (e) => {
+        if (isMouseOverCenterImage(e)) {
+          e.preventDefault();
+
+          // Adjust center image zoom
+          const currentZoom = parseInt(centerImageZoom.value);
+          const step = 10; // 10% per scroll step
+          const delta = e.deltaY < 0 ? step : -step;
+          const newZoom = Math.max(50, Math.min(300, currentZoom + delta));
+
+          centerImageZoom.value = newZoom;
+          centerImageZoomValue.textContent = newZoom + '%';
+          recorder.setVisualizerOptions({
+            custom: {
+              centerImageZoom: newZoom / 100,
+            },
+          });
+          saveSettings(getCurrentSettings());
+          updatePreview();
+        }
+      }, { passive: false });
+
+      // Add visual feedback when hovering over center image
+      canvas.addEventListener('mousemove', (e) => {
+        if (!canvasDragging && isMouseOverCenterImage(e)) {
+          canvas.style.cursor = 'zoom-in';
+          canvas.title = 'Scroll to zoom center image';
+        } else if (!canvasDragging) {
+          canvas.style.cursor = 'grab';
+          canvas.title = '';
         }
       });
 

@@ -140,44 +140,55 @@ export class AudioRecorder extends EventEmitter<AudioRecorderEvents> {
   }
 
   /**
-   * Handle page visibility changes to ensure visualization continues when tab is hidden
+   * Handle page visibility changes to ensure visualization continues when tab is hidden or window is minimized
    */
   private handleVisibilityChange(): void {
-    if (this.animationFrameId !== null || this.timerIntervalId !== null) {
-      if (document.hidden) {
-        // Page is hidden, switch to timer-based animation
-        this.log('Page hidden, switching to timer-based visualization');
+    // Check if we have an active audio source that needs visualization
+    if (this._sourceType === null) {
+      return;
+    }
 
-        // Stop requestAnimationFrame
-        if (this.animationFrameId !== null) {
-          cancelAnimationFrame(this.animationFrameId);
-          this.animationFrameId = null;
-        }
+    if (document.hidden) {
+      // Page is hidden, switch to timer-based animation
+      this.log('Page hidden, switching to timer-based visualization');
 
-        // Start timer-based animation
-        this.startTimerFallback();
-      } else {
-        // Page is visible again, switch back to requestAnimationFrame
-        this.log('Page visible, switching to requestAnimationFrame');
+      // Stop requestAnimationFrame
+      if (this.animationFrameId !== null) {
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+      }
 
-        // Stop timer
-        this.stopTimerFallback();
+      // Start timer-based animation
+      this.startTimerFallback();
+    } else {
+      // Page is visible again, switch back to requestAnimationFrame
+      this.log('Page visible, switching to requestAnimationFrame');
 
-        // Restart requestAnimationFrame if we have an active source
-        if (this._sourceType !== null) {
-          this.startVisualization();
-        }
+      // Stop timer
+      this.stopTimerFallback();
+
+      // Restart requestAnimationFrame if we have an active source
+      if (this._sourceType !== null) {
+        this.startVisualization();
       }
     }
   }
 
   /**
-   * Start timer-based fallback for visualization when tab is hidden
+   * Start timer-based fallback for visualization when tab is hidden or window is minimized
+   * Note: setInterval is used instead of requestAnimationFrame because rAF pauses when tab/window is not visible
+   * We use a shorter interval (16ms) than the target frame rate because browsers may throttle timers
+   * when the page is hidden, so we want to ensure frames are drawn as frequently as possible
    */
   private startTimerFallback(): void {
     if (this.timerIntervalId !== null) {
       return;
     }
+
+    // Use a shorter polling interval (16ms ~ 60fps) to ensure frames are drawn
+    // even when the browser throttles the timer. The actual frame rate is still
+    // controlled by lastFrameTime check.
+    const pollingInterval = Math.min(16, this.frameInterval);
 
     this.timerIntervalId = setInterval(() => {
       const timestamp = performance.now();
@@ -185,9 +196,9 @@ export class AudioRecorder extends EventEmitter<AudioRecorderEvents> {
         this.lastFrameTime = timestamp;
         this.drawFrame(timestamp);
       }
-    }, this.frameInterval);
+    }, pollingInterval);
 
-    this.log('Started timer fallback visualization');
+    this.log('Started timer fallback visualization with polling interval:', pollingInterval);
   }
 
   /**
