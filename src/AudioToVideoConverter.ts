@@ -337,20 +337,17 @@ export class AudioToVideoConverter {
   }
 
   /**
-   * Convert audio to video using synchronized real-time rendering
+   * Convert audio to video using timer-based rendering
    *
-   * IMPORTANT: MediaRecorder with captureStream(0) + requestFrame() does NOT work
-   * for offline/faster-than-realtime rendering. See:
-   * - https://github.com/w3c/mediacapture-record/issues/213
-   * - https://bugzilla.mozilla.org/show_bug.cgi?id=1344524
+   * This implementation uses setTimeout instead of requestAnimationFrame to ensure
+   * rendering continues even when the browser window is minimized or in background.
    *
-   * MediaRecorder operates on wall-clock time, and frames rendered faster than
-   * real-time are dropped. The only reliable solution is real-time synchronized
-   * rendering where frames are rendered in sync with audio playback.
+   * Key differences from requestAnimationFrame-based approach:
+   * - setTimeout continues running when tab is in background (though may be throttled)
+   * - Explicit frame timing control independent of display refresh rate
+   * - Better compatibility with MediaRecorder for background rendering
    *
-   * This method pre-analyzes the entire audio file for visualization data,
-   * then plays the audio at normal speed while rendering synchronized frames.
-   * The audio volume is set to 0 to avoid hearing it during conversion.
+   * The audio plays in real-time at volume=0, synchronized with frame rendering.
    */
   private async convertOffline(
     config: ConversionConfig,
@@ -367,7 +364,7 @@ export class AudioToVideoConverter {
       onProgress,
     } = config;
 
-    this.log('Starting audio-to-video conversion (synchronized real-time rendering)');
+    this.log('Starting offline rendering mode');
 
     // Load audio file as ArrayBuffer for pre-analysis
     let audioArrayBuffer: ArrayBuffer;
@@ -394,12 +391,14 @@ export class AudioToVideoConverter {
     const duration = audioBuffer.duration;
     const sampleRate = audioBuffer.sampleRate;
     const fftSize = 2048;
+    const totalFrames = Math.ceil(duration * fps);
+    const frameInterval = 1000 / fps;
 
-    this.log('Conversion config:', {
+    this.log('Offline rendering:', {
       duration: duration.toFixed(2) + 's',
       sampleRate,
+      totalFrames,
       fps,
-      format,
     });
 
     // Get raw audio data for visualization analysis
@@ -429,9 +428,39 @@ export class AudioToVideoConverter {
       this.log('Could not capture stream from audio element, video will have no audio');
     }
 
-    // Create video recorder with automatic canvas capture at specified FPS
-    // Using captureStream(fps) for automatic frame capture synced to wall-clock time
-    const videoRecorder = new VideoRecorder({ debug: this.debug });
+    // Get canvas stream with manual frame capture mode (fps=0)
+    // This gives us explicit control over when frames are captured
+    const canvasStream = canvas.captureStream(0);
+    const videoTrack = canvasStream.getVideoTracks()[0] as MediaStreamTrack & { requestFrame?: () => void };
+
+    this.log('Using manual frame capture mode for offline rendering');
+
+    // Combine canvas and audio streams
+    const tracks = [...canvasStream.getTracks()];
+    if (audioStream) {
+      tracks.push(...audioStream.getAudioTracks());
+    }
+    const combinedStream = new MediaStream(tracks);
+
+    // Create MediaRecorder
+    const mimeType = this.getSupportedMimeType(format);
+    if (!mimeType) {
+      throw new Error(`Format "${format}" is not supported in this browser`);
+    }
+
+    const mediaRecorder = new MediaRecorder(combinedStream, {
+      mimeType,
+      videoBitsPerSecond: videoBitrate,
+      audioBitsPerSecond: audioBitrate,
+    });
+
+    const recordedChunks: Blob[] = [];
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        recordedChunks.push(event.data);
+        this.log('Received chunk:', event.data.size, 'bytes');
+      }
+    };
 
     // Draw initial frame to ensure canvas has content before capture starts
     const { timeDomainData: initialTimeDomain, frequencyData: initialFrequency } = this.analyzeAudioFrame(
@@ -450,32 +479,28 @@ export class AudioToVideoConverter {
       fftSize,
     });
 
-    // Wait a frame to ensure the canvas has rendered
-    await new Promise(resolve => setTimeout(resolve, 16));
+    // Request initial frame capture
+    if (videoTrack.requestFrame) {
+      videoTrack.requestFrame();
+    }
 
-    // Start recording with automatic frame capture
-    videoRecorder.start(canvas, audioStream, {
-      format,
-      fps,
-      videoBitrate,
-      audioBitrate,
-    });
+    // Wait a moment to ensure the canvas has rendered
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Start recording - request data frequently for better reliability
+    mediaRecorder.start(100);
 
     // Set volume to 0 to avoid hearing audio during conversion
     // Note: Audio must NOT be muted (muted=true stops audio capture)
     audioElement.volume = 0;
 
     // Try to start audio playback
-    const playPromise = audioElement.play();
-    if (playPromise) {
-      await playPromise
-        .then(() => {
-          this.log('Audio playback started successfully');
-        })
-        .catch((error) => {
-          this.log('Audio autoplay blocked:', error.message);
-          this.log('Continuing with video-only output');
-        });
+    try {
+      await audioElement.play();
+      this.log('Audio playback started successfully');
+    } catch (error) {
+      this.log('Audio autoplay blocked:', (error as Error).message);
+      this.log('Continuing with video-only output');
     }
 
     const cleanup = (): void => {
@@ -486,19 +511,20 @@ export class AudioToVideoConverter {
       }
       audioElement.pause();
       URL.revokeObjectURL(audioBlobUrl);
+      // Stop all tracks
+      combinedStream.getTracks().forEach(track => track.stop());
     };
 
-    try {
-      // Render frames synchronized with audio playback using requestAnimationFrame
-      // This ensures frames are rendered at wall-clock time for proper MediaRecorder capture
-      const frameInterval = 1000 / fps;
-      let lastFrameTime = 0;
-      let frameCount = 0;
+    this.log(`Starting frame rendering loop: ${totalFrames} frames at ${fps} fps`);
 
-      this.log(`Starting synchronized rendering at ${fps} fps`);
+    try {
+      // Render frames using setTimeout (works in background tabs)
+      let frameCount = 0;
+      let lastProgressLog = 0;
 
       await new Promise<void>((resolve, reject) => {
         let hasErrored = false;
+        let renderTimeout: ReturnType<typeof setTimeout> | null = null;
 
         const renderFrame = (): void => {
           if (hasErrored) return;
@@ -506,61 +532,70 @@ export class AudioToVideoConverter {
           // Check for cancellation
           if (this.isCancelled) {
             hasErrored = true;
+            if (renderTimeout) clearTimeout(renderTimeout);
             this.log(`Rendering cancelled at frame ${frameCount}`);
             reject(new Error('Conversion cancelled by user'));
             return;
           }
 
           try {
-            const now = performance.now();
+            // Get current audio time for visualization analysis
+            const audioTime = audioElement.currentTime;
+            const sampleIndex = Math.floor(audioTime * sampleRate);
 
-            // Only render at target frame rate
-            if (now - lastFrameTime >= frameInterval) {
-              lastFrameTime = now;
-              frameCount++;
+            // Generate visualization data from pre-analyzed audio buffer
+            const { timeDomainData, frequencyData } = this.analyzeAudioFrame(
+              channelData,
+              sampleIndex,
+              fftSize,
+              sampleRate
+            );
 
-              // Get current audio time for visualization analysis
-              const audioTime = audioElement.currentTime;
-              const sampleIndex = Math.floor(audioTime * sampleRate);
+            const data: VisualizationData = {
+              timeDomainData,
+              frequencyData,
+              timestamp: audioTime * 1000,
+              width: canvas.width,
+              height: canvas.height,
+              sampleRate,
+              fftSize,
+            };
 
-              // Generate visualization data from pre-analyzed audio buffer
-              const { timeDomainData, frequencyData } = this.analyzeAudioFrame(
-                channelData,
-                sampleIndex,
-                fftSize,
-                sampleRate
-              );
+            // Draw the frame
+            visualizer.draw(ctx, data);
 
-              const data: VisualizationData = {
-                timeDomainData,
-                frequencyData,
-                timestamp: audioTime * 1000,
-                width: canvas.width,
-                height: canvas.height,
-                sampleRate,
-                fftSize,
-              };
+            // Request frame capture from the canvas stream
+            if (videoTrack.requestFrame) {
+              videoTrack.requestFrame();
+            }
 
-              // Draw the frame
-              visualizer.draw(ctx, data);
+            frameCount++;
 
-              // Report progress
-              if (onProgress && duration > 0) {
-                const progress = Math.min(audioTime / duration, 1);
-                onProgress(progress);
-              }
+            // Log progress every 10%
+            const progress = Math.min(audioTime / duration, 1);
+            const progressPercent = Math.floor(progress * 10) * 10;
+            if (progressPercent > lastProgressLog) {
+              lastProgressLog = progressPercent;
+              this.log(`Rendering progress: ${(progress * 100).toFixed(1)}% (frame ${frameCount}/${totalFrames})`);
+            }
+
+            // Report progress
+            if (onProgress && duration > 0) {
+              onProgress(progress);
             }
 
             // Continue until audio ends or cancelled
             if (!audioElement.ended && !audioElement.paused && !this.isCancelled) {
-              requestAnimationFrame(renderFrame);
+              // Use setTimeout for background compatibility
+              renderTimeout = setTimeout(renderFrame, frameInterval);
             } else {
               // Audio ended, finalize
-              this.log(`Audio playback ended after ${frameCount} frames`);
+              this.log(`All ${frameCount} frames rendered`);
               resolve();
             }
           } catch (error) {
             hasErrored = true;
+            if (renderTimeout) clearTimeout(renderTimeout);
             this.log(`Error in rendering loop at frame ${frameCount}:`, error);
             reject(error);
           }
@@ -569,20 +604,44 @@ export class AudioToVideoConverter {
         // Handle audio errors
         audioElement.onerror = () => {
           hasErrored = true;
+          if (renderTimeout) clearTimeout(renderTimeout);
           reject(new Error('Audio playback error'));
         };
 
         // Start the rendering loop
-        requestAnimationFrame(renderFrame);
+        renderFrame();
       });
+
+      // Log final state
+      this.log(`Frame rendering complete. Elapsed: ${Math.round(performance.now())}ms, Expected duration: ${Math.round(duration * 1000)}ms`);
+      this.log(`Audio element state: currentTime=${audioElement.currentTime.toFixed(2)}s, duration=${audioElement.duration.toFixed(2)}s, ended=${audioElement.ended}, paused=${audioElement.paused}`);
+
+      // Wait for any remaining audio to be captured
+      const remainingTime = Math.max(0, (duration - audioElement.currentTime) * 1000);
+      if (remainingTime > 0) {
+        this.log(`Waiting for audio to complete (${Math.round(remainingTime)}ms remaining)...`);
+        await new Promise(resolve => setTimeout(resolve, remainingTime + 500));
+      }
 
       // Give MediaRecorder extra time to process final frames
       this.log('Finalizing recording...');
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Stop recording and get blob
       this.log('Stopping MediaRecorder...');
-      const blob = await videoRecorder.stop();
+
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        mediaRecorder.onstop = () => {
+          const totalSize = recordedChunks.reduce((sum, chunk) => sum + chunk.size, 0);
+          this.log(`Recording stopped, total size: ${totalSize} bytes from ${recordedChunks.length} chunks`);
+          const blob = new Blob(recordedChunks, { type: mimeType });
+          resolve(blob);
+        };
+        mediaRecorder.onerror = (event) => {
+          reject(new Error(`MediaRecorder error: ${event}`));
+        };
+        mediaRecorder.stop();
+      });
 
       this.log(`MediaRecorder stopped. Blob type: ${blob.type}, size: ${blob.size} bytes`);
 
@@ -592,7 +651,7 @@ export class AudioToVideoConverter {
         onProgress(1);
       }
 
-      this.log('Conversion complete, blob size:', blob.size, 'bytes');
+      this.log('Offline conversion complete, blob size:', blob.size, 'bytes');
 
       if (blob.size === 0) {
         throw new Error('Export failed: video blob is empty (0 bytes). Possible causes:\n' +
@@ -605,10 +664,30 @@ export class AudioToVideoConverter {
 
       return blob;
     } catch (error) {
-      videoRecorder.cancel();
+      if (mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
       cleanup();
       throw error;
     }
+  }
+
+  /**
+   * Get supported MIME type for the format
+   */
+  private getSupportedMimeType(format: string): string | null {
+    const mimeTypes: Record<string, string[]> = {
+      webm: ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'],
+      mp4: ['video/mp4;codecs=h264,aac', 'video/mp4'],
+    };
+
+    const types = mimeTypes[format] || mimeTypes['webm'];
+    for (const mimeType of types) {
+      if (MediaRecorder.isTypeSupported(mimeType)) {
+        return mimeType;
+      }
+    }
+    return null;
   }
 
   /**
