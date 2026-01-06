@@ -392,7 +392,6 @@ export class AudioToVideoConverter {
     const sampleRate = audioBuffer.sampleRate;
     const fftSize = 2048;
     const totalFrames = Math.ceil(duration * fps);
-    const frameInterval = 1000 / fps;
 
     this.log('Offline rendering:', {
       duration: duration.toFixed(2) + 's',
@@ -428,12 +427,12 @@ export class AudioToVideoConverter {
       this.log('Could not capture stream from audio element, video will have no audio');
     }
 
-    // Get canvas stream with manual frame capture mode (fps=0)
-    // This gives us explicit control over when frames are captured
-    const canvasStream = canvas.captureStream(0);
-    const videoTrack = canvasStream.getVideoTracks()[0] as MediaStreamTrack & { requestFrame?: () => void };
+    // Get canvas stream with automatic frame capture at specified fps
+    // Note: We must use fps > 0 for MediaRecorder to work properly
+    // MediaRecorder operates on wall-clock time, not frame count
+    const canvasStream = canvas.captureStream(fps);
 
-    this.log('Using manual frame capture mode for offline rendering');
+    this.log('Using automatic frame capture mode for offline rendering at', fps, 'fps');
 
     // Combine canvas and audio streams
     const tracks = [...canvasStream.getTracks()];
@@ -479,14 +478,6 @@ export class AudioToVideoConverter {
       fftSize,
     });
 
-    // Request initial frame capture
-    if (videoTrack.requestFrame) {
-      videoTrack.requestFrame();
-    }
-
-    // Wait a moment to ensure the canvas has rendered
-    await new Promise(resolve => setTimeout(resolve, 50));
-
     // Start recording - request data frequently for better reliability
     mediaRecorder.start(100);
 
@@ -518,13 +509,14 @@ export class AudioToVideoConverter {
     this.log(`Starting frame rendering loop: ${totalFrames} frames at ${fps} fps`);
 
     try {
-      // Render frames using setTimeout (works in background tabs)
+      // Render frames synchronized with audio playback using requestAnimationFrame
+      // This ensures frames are captured at the correct rate for MediaRecorder
       let frameCount = 0;
       let lastProgressLog = 0;
 
       await new Promise<void>((resolve, reject) => {
         let hasErrored = false;
-        let renderTimeout: ReturnType<typeof setTimeout> | null = null;
+        let animationFrameId: number | null = null;
 
         const renderFrame = (): void => {
           if (hasErrored) return;
@@ -532,7 +524,7 @@ export class AudioToVideoConverter {
           // Check for cancellation
           if (this.isCancelled) {
             hasErrored = true;
-            if (renderTimeout) clearTimeout(renderTimeout);
+            if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
             this.log(`Rendering cancelled at frame ${frameCount}`);
             reject(new Error('Conversion cancelled by user'));
             return;
@@ -561,13 +553,8 @@ export class AudioToVideoConverter {
               fftSize,
             };
 
-            // Draw the frame
+            // Draw the frame - canvas.captureStream(fps) automatically captures frames
             visualizer.draw(ctx, data);
-
-            // Request frame capture from the canvas stream
-            if (videoTrack.requestFrame) {
-              videoTrack.requestFrame();
-            }
 
             frameCount++;
 
@@ -586,8 +573,8 @@ export class AudioToVideoConverter {
 
             // Continue until audio ends or cancelled
             if (!audioElement.ended && !audioElement.paused && !this.isCancelled) {
-              // Use setTimeout for background compatibility
-              renderTimeout = setTimeout(renderFrame, frameInterval);
+              // Use requestAnimationFrame for smooth synchronized rendering
+              animationFrameId = requestAnimationFrame(renderFrame);
             } else {
               // Audio ended, finalize
               this.log(`All ${frameCount} frames rendered`);
@@ -595,7 +582,7 @@ export class AudioToVideoConverter {
             }
           } catch (error) {
             hasErrored = true;
-            if (renderTimeout) clearTimeout(renderTimeout);
+            if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
             this.log(`Error in rendering loop at frame ${frameCount}:`, error);
             reject(error);
           }
@@ -604,12 +591,12 @@ export class AudioToVideoConverter {
         // Handle audio errors
         audioElement.onerror = () => {
           hasErrored = true;
-          if (renderTimeout) clearTimeout(renderTimeout);
+          if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
           reject(new Error('Audio playback error'));
         };
 
         // Start the rendering loop
-        renderFrame();
+        animationFrameId = requestAnimationFrame(renderFrame);
       });
 
       // Log final state
