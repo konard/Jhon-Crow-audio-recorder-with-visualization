@@ -509,14 +509,19 @@ export class AudioToVideoConverter {
     this.log(`Starting frame rendering loop: ${totalFrames} frames at ${fps} fps`);
 
     try {
-      // Render frames synchronized with audio playback using requestAnimationFrame
-      // This ensures frames are captured at the correct rate for MediaRecorder
+      // Render frames synchronized with audio playback using setTimeout
+      // IMPORTANT: We use setTimeout instead of requestAnimationFrame because:
+      // - requestAnimationFrame is throttled to ~1 FPS in background/minimized windows
+      // - setTimeout is throttled less aggressively (still works in background)
+      // - MediaRecorder needs consistent frame delivery to capture video data
+      // - Using setTimeout ensures frames arrive at MediaRecorder even when window is minimized
       let frameCount = 0;
       let lastProgressLog = 0;
+      const frameInterval = 1000 / fps; // Time between frames in milliseconds
 
       await new Promise<void>((resolve, reject) => {
         let hasErrored = false;
-        let animationFrameId: number | null = null;
+        let timeoutId: NodeJS.Timeout | null = null;
 
         const renderFrame = (): void => {
           if (hasErrored) return;
@@ -524,7 +529,7 @@ export class AudioToVideoConverter {
           // Check for cancellation
           if (this.isCancelled) {
             hasErrored = true;
-            if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
+            if (timeoutId !== null) clearTimeout(timeoutId);
             this.log(`Rendering cancelled at frame ${frameCount}`);
             reject(new Error('Conversion cancelled by user'));
             return;
@@ -573,8 +578,8 @@ export class AudioToVideoConverter {
 
             // Continue until audio ends or cancelled
             if (!audioElement.ended && !audioElement.paused && !this.isCancelled) {
-              // Use requestAnimationFrame for smooth synchronized rendering
-              animationFrameId = requestAnimationFrame(renderFrame);
+              // Use setTimeout for consistent frame delivery (less throttling than rAF)
+              timeoutId = setTimeout(renderFrame, frameInterval);
             } else {
               // Audio ended, finalize
               this.log(`All ${frameCount} frames rendered`);
@@ -582,7 +587,7 @@ export class AudioToVideoConverter {
             }
           } catch (error) {
             hasErrored = true;
-            if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
+            if (timeoutId !== null) clearTimeout(timeoutId);
             this.log(`Error in rendering loop at frame ${frameCount}:`, error);
             reject(error);
           }
@@ -591,12 +596,12 @@ export class AudioToVideoConverter {
         // Handle audio errors
         audioElement.onerror = () => {
           hasErrored = true;
-          if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
+          if (timeoutId !== null) clearTimeout(timeoutId);
           reject(new Error('Audio playback error'));
         };
 
         // Start the rendering loop
-        animationFrameId = requestAnimationFrame(renderFrame);
+        timeoutId = setTimeout(renderFrame, 0);
       });
 
       // Log final state

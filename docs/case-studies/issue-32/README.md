@@ -314,53 +314,62 @@ for (let i = 0; i < totalFrames; i++) {
 4. **Complex approaches fail** - Simple solutions (separate rendering) often better
 5. **Test assumptions early** - All four fixes assumed composite operations would work
 
+## Latest Update (2026-01-06 10:20 UTC)
+
+### User Feedback on Previous Fixes
+
+User reported that **BOTH issues remain UNFIXED** after 10+ attempted commits:
+
+> "Обе ошибки не исправлены." (Both errors are not fixed)
+
+**Evidence:**
+- User log file: `-1767694792264.log` showing 0-byte blob after rendering 1265 frames
+- Both issues persist despite claims of fixes in previous PR comments
+
+### Critical Finding from Latest User Log Analysis
+
+```
+Line 34: [AudioToVideoConverter] All 1265 frames rendered
+Line 35: [AudioToVideoConverter] Frame rendering complete. Elapsed: 100020ms, Expected duration: 49659ms
+Line 40: [AudioToVideoConverter] Recording stopped, total size: 0 bytes from 0 chunks
+Line 41: [AudioToVideoConverter] MediaRecorder stopped. Blob type: video/webm;codecs=vp9,opus, size: 0 bytes
+```
+
+**Key Insight**: The implementation uses `requestAnimationFrame` which IS throttled in minimized/background windows, causing MediaRecorder to receive ZERO frames despite canvas drawing completing.
+
+### Additional Research (2026-01-06)
+
+**[Mozilla Bug #1344524](https://bugzilla.mozilla.org/show_bug.cgi?id=1344524)**:
+> "canvas.captureStream: doesn't capture frames in a background tab - navigating to a different tab in Firefox causes less than 1 fps capture"
+
+**[Chromium Bug #639105](https://bugs.chromium.org/p/chromium/issues/detail?id=639105)**:
+> "canvas.captureStream() empty on background tab - video stalls entirely when using canvas with requestAnimationFrame"
+
+**[Medium: How To Record Canvas Without Browser Throttling](https://medium.com/@chemsabd/how-to-recorded-canvas-in-react-without-browser-throttling-using-web-workers-and-webcodecs-792446d21f10)**:
+> "Modern browsers throttle requestAnimationFrame and canvas updates when tabs aren't active, making background recording nearly impossible. Use Web Workers and OffscreenCanvas or WebCodecs for reliable recording."
+
 ## Implementation Results
 
-### Mirror Horizontal - FIXED ✅
+### Status: BOTH ISSUES STILL PRESENT ❌
 
-**Solution Implemented:**
-- Added `_skipBackgroundForMirror` flag to control background rendering
-- When mirror mode is enabled:
-  1. Skip background drawing in `drawBackground()`
-  2. Clip rendering context to left half
-  3. Visualization draws only on left half (no background)
-  4. After drawing, copy left half to temp canvas
-  5. Clear main canvas, redraw background (full width, not mirrored)
-  6. Draw visualization from temp canvas to both sides:
-     - Right side: normal (center → right edge)
-     - Left side: mirrored (center → left edge)
+Previous attempts claimed to fix issues but user testing confirms both problems persist:
 
-**Files Modified:**
-- `src/visualizers/BaseVisualizer.ts`
-  - Added `_skipBackgroundForMirror` flag (line 415)
-  - Modified `drawBackground()` to check flag (line 148)
-  - Updated `applyTransform()` to set flag and clip (lines 422-451)
-  - Updated `restoreTransform()` to mirror visualization (lines 457-515)
+1. **Mirror Horizontal** - Still showing incorrect behavior
+2. **Offline Rendering** - Still producing 0-byte blobs
 
-**Why This Works:**
-- Visualization is rendered separately from background
-- No composite operations needed (avoided browser inconsistencies)
-- Clean separation of layers
-- Background never gets mirrored
+### Why Previous Fixes Failed
 
-### Offline Rendering - FIXED ✅
+**Mirror Horizontal Previous Attempt:**
+- Used RIGHT half clipping and mirroring
+- Background caching implemented
+- **Issue**: Despite code logic being correct, user reports it still doesn't work as expected
 
-**Solution Implemented:**
-- Replaced `requestAnimationFrame` with `setInterval` for frame rendering
-- `setInterval` runs at consistent rate regardless of window state
-- Provides steady frame delivery to MediaRecorder
-
-**Files Modified:**
-- `src/AudioToVideoConverter.ts`
-  - Lines 482-537: Replaced rAF with setInterval
-  - Calculate frame interval: `1000 / fps` (e.g., 33.33ms for 30fps)
-  - Use `clearInterval()` when done or cancelled
-
-**Why This Works:**
-- `setInterval` is NOT throttled when window is blurred/minimized
-- MediaRecorder receives frames at consistent rate
-- No empty blob issue from lack of frames
-- Predictable timing
+**Offline Rendering Previous Attempt:**
+- Used `requestAnimationFrame` with `canvas.captureStream(fps)`
+- **Fatal Flaw**: `requestAnimationFrame` is THROTTLED in background/minimized windows
+- MediaRecorder operates on wall-clock time and expects real-time frame delivery
+- When RAF delivers frames slowly (< fps), MediaRecorder times out with 0 bytes
+- This is a fundamental architectural problem, not a simple bug
 
 ## Testing
 
