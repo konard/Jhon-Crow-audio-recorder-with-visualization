@@ -52,16 +52,17 @@ export class BarVisualizer extends BaseVisualizer {
       this.previousHeights = new Array(barCount).fill(0);
     }
 
+    // Get frequency data slice based on frequencyWidth setting
+    // Ensure we have at least barCount bins to prevent division by zero
+    const frequencyDataSlice = this.getFrequencyDataSlice(frequencyData, barCount);
+
     // Calculate bar heights from frequency data
-    const step = Math.floor(frequencyData.length / barCount);
+    // Use Math.max(1, ...) to ensure step is never 0
+    const step = Math.max(1, Math.floor(frequencyDataSlice.length / barCount));
 
     for (let i = 0; i < barCount; i++) {
-      // Average frequency values for this bar
-      let sum = 0;
-      for (let j = 0; j < step; j++) {
-        sum += frequencyData[i * step + j];
-      }
-      const average = sum / step;
+      // Average frequency values for this bar using safe calculation
+      const average = this.calculateBandAverage(frequencyDataSlice, i * step, step);
 
       // Normalize to 0-1 and apply ADSR envelope smoothing
       const targetHeight = (average / 255) * height;
