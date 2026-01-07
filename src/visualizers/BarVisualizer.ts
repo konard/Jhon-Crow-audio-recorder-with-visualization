@@ -57,7 +57,6 @@ export class BarVisualizer extends BaseVisualizer {
 
     // Calculate bar heights from frequency data
     const step = Math.floor(frequencyDataSlice.length / barCount);
-    const smoothing = this.options.smoothing!;
 
     for (let i = 0; i < barCount; i++) {
       // Average frequency values for this bar
@@ -67,10 +66,9 @@ export class BarVisualizer extends BaseVisualizer {
       }
       const average = sum / step;
 
-      // Normalize to 0-1 and apply smoothing
+      // Normalize to 0-1 and apply ADSR envelope smoothing
       const targetHeight = (average / 255) * height;
-      const smoothedHeight =
-        this.previousHeights[i] * smoothing + targetHeight * (1 - smoothing);
+      const smoothedHeight = this.applyADSRSmoothing(this.previousHeights[i], targetHeight);
       this.previousHeights[i] = smoothedHeight;
 
       const x = i * totalBarWidth + gapWidth / 2;

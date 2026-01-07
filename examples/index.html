@@ -904,6 +904,104 @@
       opacity: 0.9;
       box-shadow: 0 2px 8px rgba(0, 255, 136, 0.3);
     }
+
+    /* ADSR Accordion Styles */
+    .adsr-accordion {
+      grid-column: 1 / -1;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+    }
+
+    .adsr-accordion-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--spacing-sm) var(--spacing-md);
+      cursor: pointer;
+      background: rgba(0, 0, 0, 0.2);
+      transition: background var(--transition-fast);
+      user-select: none;
+    }
+
+    .adsr-accordion-header:hover {
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .adsr-accordion-title {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+    }
+
+    .adsr-accordion-header:hover .adsr-accordion-title {
+      color: var(--color-text-primary);
+    }
+
+    .adsr-accordion-icon {
+      font-size: 12px;
+      transition: transform var(--transition-fast);
+    }
+
+    .adsr-accordion.expanded .adsr-accordion-icon {
+      transform: rotate(180deg);
+    }
+
+    .adsr-accordion-content {
+      display: none;
+      padding: var(--spacing-md);
+      border-top: 1px solid var(--color-border);
+    }
+
+    .adsr-accordion.expanded .adsr-accordion-content {
+      display: block;
+    }
+
+    .adsr-controls {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--spacing-md);
+    }
+
+    @media (max-width: 600px) {
+      .adsr-controls {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .adsr-control {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-xs);
+    }
+
+    .adsr-control-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .adsr-control-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+    }
+
+    .adsr-control-value {
+      font-size: 12px;
+      color: var(--color-primary);
+      font-weight: 600;
+    }
+
+    .adsr-control-description {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      margin-top: 2px;
+    }
   </style>
 </head>
 <body>
@@ -1015,6 +1113,52 @@
           Frequency Width: <span id="frequencyWidthValue">100%</span>
           <input type="range" id="frequencyWidth" min="10" max="100" value="100" aria-label="Adjust frequency width">
         </label>
+        <!-- ADSR Envelope Accordion -->
+        <div class="adsr-accordion" id="adsrAccordion">
+          <div class="adsr-accordion-header" id="adsrAccordionHeader" aria-expanded="false" aria-controls="adsrAccordionContent">
+            <span class="adsr-accordion-title">
+              <span>ADSR Envelope</span>
+              <span style="font-size: 11px; color: var(--color-text-muted);">(Animation Control)</span>
+            </span>
+            <span class="adsr-accordion-icon">▼</span>
+          </div>
+          <div class="adsr-accordion-content" id="adsrAccordionContent" role="region">
+            <div class="adsr-controls">
+              <div class="adsr-control">
+                <div class="adsr-control-header">
+                  <span class="adsr-control-label">Attack</span>
+                  <span class="adsr-control-value" id="adsrAttackValue">20%</span>
+                </div>
+                <input type="range" id="adsrAttack" min="0" max="100" value="20" aria-label="Adjust attack time">
+                <div class="adsr-control-description">How fast visualization responds to sound (0 = instant)</div>
+              </div>
+              <div class="adsr-control">
+                <div class="adsr-control-header">
+                  <span class="adsr-control-label">Decay</span>
+                  <span class="adsr-control-value" id="adsrDecayValue">30%</span>
+                </div>
+                <input type="range" id="adsrDecay" min="0" max="100" value="30" aria-label="Adjust decay time">
+                <div class="adsr-control-description">How fast it falls from peak to sustain level</div>
+              </div>
+              <div class="adsr-control">
+                <div class="adsr-control-header">
+                  <span class="adsr-control-label">Sustain</span>
+                  <span class="adsr-control-value" id="adsrSustainValue">10%</span>
+                </div>
+                <input type="range" id="adsrSustain" min="0" max="100" value="10" aria-label="Adjust sustain level">
+                <div class="adsr-control-description">Minimum level maintained during sound (0 = no floor)</div>
+              </div>
+              <div class="adsr-control">
+                <div class="adsr-control-header">
+                  <span class="adsr-control-label">Release</span>
+                  <span class="adsr-control-value" id="adsrReleaseValue">50%</span>
+                </div>
+                <input type="range" id="adsrRelease" min="0" max="100" value="50" aria-label="Adjust release time">
+                <div class="adsr-control-description">How fast visualization fades when sound stops</div>
+              </div>
+            </div>
+          </div>
+        </div>
         <label>
           Background Image (optional)
           <input type="file" id="bgImage" accept="image/*" aria-label="Upload background image">
@@ -1198,6 +1342,17 @@
       const bgColor = document.getElementById('bgColor');
       const barCount = document.getElementById('barCount');
       const frequencyWidth = document.getElementById('frequencyWidth');
+      // ADSR Envelope controls
+      const adsrAccordion = document.getElementById('adsrAccordion');
+      const adsrAccordionHeader = document.getElementById('adsrAccordionHeader');
+      const adsrAttack = document.getElementById('adsrAttack');
+      const adsrAttackValue = document.getElementById('adsrAttackValue');
+      const adsrDecay = document.getElementById('adsrDecay');
+      const adsrDecayValue = document.getElementById('adsrDecayValue');
+      const adsrSustain = document.getElementById('adsrSustain');
+      const adsrSustainValue = document.getElementById('adsrSustainValue');
+      const adsrRelease = document.getElementById('adsrRelease');
+      const adsrReleaseValue = document.getElementById('adsrReleaseValue');
       const bgImage = document.getElementById('bgImage');
       const mirror = document.getElementById('mirror');
       const mirrorHorizontal = document.getElementById('mirrorHorizontal');
@@ -1244,6 +1399,11 @@
         backgroundColor: '#000000',
         barCount: 64,
         frequencyWidth: 100,
+        // ADSR envelope settings
+        adsrAttack: 20,
+        adsrDecay: 30,
+        adsrSustain: 10,
+        adsrRelease: 50,
         mirror: false,
         mirrorHorizontal: false,
         visualizationAlpha: 1,
@@ -1299,6 +1459,11 @@
           backgroundColor: bgColor.value,
           barCount: parseInt(barCount.value),
           frequencyWidth: parseInt(frequencyWidth.value),
+          // ADSR envelope settings
+          adsrAttack: parseInt(adsrAttack.value),
+          adsrDecay: parseInt(adsrDecay.value),
+          adsrSustain: parseInt(adsrSustain.value),
+          adsrRelease: parseInt(adsrRelease.value),
           mirror: mirror.checked,
           mirrorHorizontal: mirrorHorizontal.checked,
           visualizationAlpha: parseFloat(visualizationAlpha.value),
@@ -1330,6 +1495,15 @@
         document.getElementById('barCountValue').textContent = settings.barCount;
         frequencyWidth.value = settings.frequencyWidth || 100;
         document.getElementById('frequencyWidthValue').textContent = (settings.frequencyWidth || 100) + '%';
+        // ADSR envelope settings
+        adsrAttack.value = settings.adsrAttack ?? 20;
+        adsrAttackValue.textContent = (settings.adsrAttack ?? 20) + '%';
+        adsrDecay.value = settings.adsrDecay ?? 30;
+        adsrDecayValue.textContent = (settings.adsrDecay ?? 30) + '%';
+        adsrSustain.value = settings.adsrSustain ?? 10;
+        adsrSustainValue.textContent = (settings.adsrSustain ?? 10) + '%';
+        adsrRelease.value = settings.adsrRelease ?? 50;
+        adsrReleaseValue.textContent = (settings.adsrRelease ?? 50) + '%';
         mirror.checked = settings.mirror;
         mirrorHorizontal.checked = settings.mirrorHorizontal || false;
         visualizationAlpha.value = settings.visualizationAlpha;
@@ -1402,6 +1576,11 @@
         backgroundColor: savedSettings.backgroundColor,
         barCount: savedSettings.barCount,
         frequencyWidth: savedSettings.frequencyWidth || 100,
+        // ADSR envelope settings
+        adsrAttack: savedSettings.adsrAttack ?? 20,
+        adsrDecay: savedSettings.adsrDecay ?? 30,
+        adsrSustain: savedSettings.adsrSustain ?? 10,
+        adsrRelease: savedSettings.adsrRelease ?? 50,
         mirror: savedSettings.mirror,
         mirrorHorizontal: savedSettings.mirrorHorizontal || false,
         visualizationAlpha: savedSettings.visualizationAlpha,
@@ -1750,6 +1929,11 @@
           backgroundColor: bgColor.value,
           barCount: parseInt(barCount.value),
           frequencyWidth: parseInt(frequencyWidth.value),
+          // ADSR envelope settings
+          adsrAttack: parseInt(adsrAttack.value),
+          adsrDecay: parseInt(adsrDecay.value),
+          adsrSustain: parseInt(adsrSustain.value),
+          adsrRelease: parseInt(adsrRelease.value),
           mirror: mirror.checked,
           mirrorHorizontal: mirrorHorizontal.checked,
           visualizationAlpha: parseFloat(visualizationAlpha.value),
@@ -1856,6 +2040,48 @@
         const newFrequencyWidth = parseInt(frequencyWidth.value);
         frequencyWidthValue.textContent = newFrequencyWidth + '%';
         recorder.setVisualizerOptions({ frequencyWidth: newFrequencyWidth });
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // ADSR Accordion toggle handler
+      adsrAccordionHeader.addEventListener('click', () => {
+        const isExpanded = adsrAccordion.classList.toggle('expanded');
+        adsrAccordionHeader.setAttribute('aria-expanded', isExpanded);
+      });
+
+      // ADSR Attack change handler
+      adsrAttack.addEventListener('input', () => {
+        const value = parseInt(adsrAttack.value);
+        adsrAttackValue.textContent = value + '%';
+        recorder.setVisualizerOptions({ adsrAttack: value });
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // ADSR Decay change handler
+      adsrDecay.addEventListener('input', () => {
+        const value = parseInt(adsrDecay.value);
+        adsrDecayValue.textContent = value + '%';
+        recorder.setVisualizerOptions({ adsrDecay: value });
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // ADSR Sustain change handler
+      adsrSustain.addEventListener('input', () => {
+        const value = parseInt(adsrSustain.value);
+        adsrSustainValue.textContent = value + '%';
+        recorder.setVisualizerOptions({ adsrSustain: value });
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // ADSR Release change handler
+      adsrRelease.addEventListener('input', () => {
+        const value = parseInt(adsrRelease.value);
+        adsrReleaseValue.textContent = value + '%';
+        recorder.setVisualizerOptions({ adsrRelease: value });
         saveSettings(getCurrentSettings());
         updatePreview();
       });

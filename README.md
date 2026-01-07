@@ -16,6 +16,11 @@ A TypeScript library for audio visualization and recording. Capture audio from m
   - Glow Waveform (waveform with glow effects and smooth curves)
   - VU Meter (classic audio equipment style meters)
   - Spectrogram (waterfall frequency display)
+  - Double Spiral (dual spirals rotating in opposite directions)
+  - Pulse (concentric rings pulsing from center)
+  - Waterfall Bars (bars cascading down showing frequency history)
+  - Grid (grid of reactive squares)
+  - Lissajous (classic Lissajous curve pattern)
 - **Custom images/GIFs** as backgrounds or overlays
 - **Extensible visualizer system** - create your own visualizers
 - **Maximum performance** - optimized rendering with requestAnimationFrame and typed arrays
@@ -43,7 +48,7 @@ import { AudioRecorder } from 'audio-recorder-with-visualization';
 // Create recorder
 const recorder = new AudioRecorder({
   canvas: '#visualizer', // Canvas element or selector
-  visualizer: 'bars',    // 'waveform', 'bars', 'circular', 'particles', 'spectrum-gradient', 'glow-waveform', 'vu-meter', 'spectrogram'
+  visualizer: 'bars',    // 'waveform', 'bars', 'circular', 'particles', 'spectrum-gradient', 'glow-waveform', 'vu-meter', 'spectrogram', 'double-spiral', 'pulse', 'waterfall-bars', 'grid', 'lissajous'
   fftSize: 2048,
   fps: 30,
 });
@@ -261,6 +266,83 @@ Waterfall display showing frequency data over time.
     colorScheme: 'rainbow' | 'heat' | 'cool' | 'grayscale',  // Color scheme (default: 'rainbow')
     orientation: 'vertical' | 'horizontal',      // Scroll direction (default: 'vertical')
     frequencyRange: 'full' | 'bass' | 'mid' | 'high',  // Frequency range to display (default: 'full')
+  }
+}
+```
+
+#### Double Spiral (`double-spiral`)
+Dual spirals rotating in opposite directions, reacting to audio frequency data.
+
+**Custom Options:**
+```typescript
+{
+  custom: {
+    rotationSpeed: 0.02,      // Rotation speed in radians per frame (default: 0.02)
+    spiralTightness: 0.5,     // How tight the spiral is, 0.1-2 (default: 0.5)
+    maxRadius: 0.4,           // Max radius as fraction of min dimension (default: 0.4)
+    glowEffect: true,         // Enable glow effect (default: true)
+  }
+}
+```
+
+#### Pulse (`pulse`)
+Concentric rings that pulse from center based on bass intensity.
+
+**Custom Options:**
+```typescript
+{
+  custom: {
+    pulseThreshold: 0.3,      // Minimum bass intensity to trigger pulse (default: 0.3)
+    maxRings: 5,              // Maximum number of rings (default: 5)
+    ringSpeed: 5,             // Ring expansion speed (default: 5)
+    ringSpacing: 80,          // Space between rings in pixels (default: 80)
+    fillRings: false,         // Fill rings instead of just stroke (default: false)
+  }
+}
+```
+
+#### Waterfall Bars (`waterfall-bars`)
+Bars that cascade down like a waterfall, showing frequency history over time.
+
+**Custom Options:**
+```typescript
+{
+  custom: {
+    scrollSpeed: 1,           // Pixels to scroll per frame (default: 1)
+    historyLength: 50,        // Number of history frames to keep (default: 50)
+    fadeEffect: true,         // Fade older bars (default: true)
+  }
+}
+```
+
+#### Grid (`grid`)
+Grid of squares that react to different frequency bands.
+
+**Custom Options:**
+```typescript
+{
+  custom: {
+    gridCols: 16,             // Number of columns (default: 16)
+    gridRows: 12,             // Number of rows (default: 12)
+    cellGap: 4,               // Gap between cells in pixels (default: 4)
+    reactToFrequency: true,   // React to frequency or random (default: true)
+    glowEffect: true,         // Enable glow effect (default: true)
+  }
+}
+```
+
+#### Lissajous (`lissajous`)
+Classic Lissajous curve pattern based on audio waveform.
+
+**Custom Options:**
+```typescript
+{
+  custom: {
+    size: 0.4,                // Size as fraction of min dimension (default: 0.4)
+    trailLength: 100,         // Number of points in trail (default: 100)
+    phaseOffset: Math.PI / 2, // Phase offset between X and Y (default: Math.PI / 2)
+    frequencyRatio: 1,        // Frequency ratio X:Y, e.g., 1, 2, 3:2 (default: 1)
+    showTrail: true,          // Show trail effect (default: true)
   }
 }
 ```

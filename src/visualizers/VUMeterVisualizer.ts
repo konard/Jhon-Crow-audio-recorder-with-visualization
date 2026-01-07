@@ -75,10 +75,9 @@ export class VUMeterVisualizer extends BaseVisualizer {
     const targetLeftLevel = leftSum / (midpoint * 255);
     const targetRightLevel = rightSum / ((frequencyDataSlice.length - midpoint) * 255);
 
-    // Smooth level changes
-    const smoothing = this.options.smoothing!;
-    this.leftLevel = this.leftLevel * smoothing + targetLeftLevel * (1 - smoothing);
-    this.rightLevel = this.rightLevel * smoothing + targetRightLevel * (1 - smoothing);
+    // Apply ADSR envelope smoothing to level changes
+    this.leftLevel = this.applyADSRSmoothing(this.leftLevel, targetLeftLevel);
+    this.rightLevel = this.applyADSRSmoothing(this.rightLevel, targetRightLevel);
 
     // Update peaks
     if (this.leftLevel > this.leftPeak) {
