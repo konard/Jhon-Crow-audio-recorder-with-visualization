@@ -65,7 +65,6 @@ export class SpectrumGradientVisualizer extends BaseVisualizer {
 
     // Calculate bar heights from frequency data
     const step = Math.floor(frequencyData.length / barCount);
-    const smoothing = this.options.smoothing!;
     const peakFallSpeed = this.options.custom?.peakFallSpeed as number;
     const showPeaks = this.options.custom?.peakDots as boolean;
     const fillStyle = this.options.custom?.fillStyle as string;
@@ -79,10 +78,9 @@ export class SpectrumGradientVisualizer extends BaseVisualizer {
       }
       const average = sum / step;
 
-      // Normalize to 0-1 and apply smoothing
+      // Normalize to 0-1 and apply ADSR envelope smoothing
       const targetHeight = (average / 255) * height;
-      const smoothedHeight =
-        this.previousHeights[i] * smoothing + targetHeight * (1 - smoothing);
+      const smoothedHeight = this.applyADSRSmoothing(this.previousHeights[i], targetHeight);
       this.previousHeights[i] = smoothedHeight;
 
       // Update peak
