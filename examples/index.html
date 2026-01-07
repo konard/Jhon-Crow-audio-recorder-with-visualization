@@ -3368,6 +3368,40 @@
         }, { passive: false });
       });
 
+      // Debug visual feature: Show boundaries during slider dragging
+      // This helps visualize which parameters are being changed
+      rangeInputs.forEach(slider => {
+        let debugVisualTimeout = null;
+
+        // Show debug visual when slider is being dragged
+        slider.addEventListener('input', () => {
+          recorder.showDebugVisual();
+
+          // Clear any existing timeout
+          if (debugVisualTimeout) {
+            clearTimeout(debugVisualTimeout);
+          }
+
+          // Hide debug visual after a short delay when dragging stops
+          debugVisualTimeout = setTimeout(() => {
+            recorder.hideDebugVisual();
+          }, 500);
+        });
+
+        // Hide debug visual immediately when mouse is released
+        slider.addEventListener('change', () => {
+          if (debugVisualTimeout) {
+            clearTimeout(debugVisualTimeout);
+          }
+          recorder.hideDebugVisual();
+        });
+      });
+
+      // Hide debug visual when recording starts
+      recorder.on('recording:start', () => {
+        recorder.hideDebugVisual();
+      });
+
       // Keyboard shortcuts for better UX
       document.addEventListener('keydown', (e) => {
         // Prevent shortcuts when typing in inputs
