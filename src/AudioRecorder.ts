@@ -22,6 +22,11 @@ import {
   SpiralWaveformVisualizer,
   RadialBarsVisualizer,
   FrequencyRingsVisualizer,
+  DoubleSpiralVisualizer,
+  PulseVisualizer,
+  WaterfallBarsVisualizer,
+  GridVisualizer,
+  LissajousVisualizer,
 } from './visualizers';
 
 /**
@@ -39,6 +44,11 @@ const BUILT_IN_VISUALIZERS: Record<string, new (options?: VisualizerOptions) => 
   'spiral-waveform': SpiralWaveformVisualizer,
   'radial-bars': RadialBarsVisualizer,
   'frequency-rings': FrequencyRingsVisualizer,
+  'double-spiral': DoubleSpiralVisualizer,
+  pulse: PulseVisualizer,
+  'waterfall-bars': WaterfallBarsVisualizer,
+  grid: GridVisualizer,
+  lissajous: LissajousVisualizer,
 };
 
 /**
