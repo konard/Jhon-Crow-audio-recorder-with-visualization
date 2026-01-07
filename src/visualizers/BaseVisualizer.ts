@@ -28,9 +28,14 @@ export abstract class BaseVisualizer implements Visualizer {
       lineWidth: 2,
       barCount: 64,
       barGap: 0.2,
+      frequencyWidth: 100,
       mirror: false,
       mirrorHorizontal: false,
       smoothing: 0.8,
+      adsrAttack: 20,
+      adsrDecay: 30,
+      adsrSustain: 10,
+      adsrRelease: 50,
       foregroundAlpha: 1,
       visualizationAlpha: 1,
       offsetX: 0,
@@ -151,6 +156,56 @@ export abstract class BaseVisualizer implements Visualizer {
    */
   protected isValidDimensions(width: number, height: number): boolean {
     return width > 0 && height > 0 && isFinite(width) && isFinite(height);
+  }
+
+  /**
+   * Get a slice of frequency data based on frequencyWidth setting
+   * @param frequencyData - Full frequency data array
+   * @param minBins - Minimum number of bins to return (default: barCount or 1)
+   * @returns Sliced frequency data array based on frequencyWidth percentage
+   */
+  protected getFrequencyDataSlice(frequencyData: Uint8Array, minBins?: number): Uint8Array {
+    const frequencyWidth = this.options.frequencyWidth ?? 100;
+
+    // If displaying full spectrum, return as-is
+    if (frequencyWidth >= 100) {
+      return frequencyData;
+    }
+
+    // Calculate how many bins to use (from the start, as lower frequencies are more important)
+    // Ensure we have at least minBins bins to prevent division by zero issues
+    const effectiveMinBins = minBins ?? this.options.barCount ?? 1;
+    const calculatedBinCount = Math.floor((frequencyData.length * frequencyWidth) / 100);
+    const binCount = Math.max(effectiveMinBins, calculatedBinCount);
+
+    // Return a slice of the frequency data (capped at actual length)
+    return frequencyData.slice(0, Math.min(binCount, frequencyData.length));
+  }
+
+  /**
+   * Calculate the average value for a frequency band with safe division
+   * @param frequencyData - Frequency data array
+   * @param startIndex - Start index in the array
+   * @param count - Number of bins to average (will be clamped to valid range)
+   * @returns Average value (0-255) or 0 if no valid data
+   */
+  protected calculateBandAverage(frequencyData: Uint8Array, startIndex: number, count: number): number {
+    if (count <= 0 || startIndex >= frequencyData.length) {
+      return 0;
+    }
+
+    // Clamp count to available data
+    const effectiveCount = Math.min(count, frequencyData.length - startIndex);
+    if (effectiveCount <= 0) {
+      return 0;
+    }
+
+    let sum = 0;
+    for (let i = 0; i < effectiveCount; i++) {
+      sum += frequencyData[startIndex + i];
+    }
+
+    return sum / effectiveCount;
   }
 
   /**
@@ -713,6 +768,44 @@ export abstract class BaseVisualizer implements Visualizer {
    * Abstract draw method - must be implemented by subclasses
    */
   abstract draw(ctx: CanvasRenderingContext2D, data: VisualizationData): void;
+
+  /**
+   * Apply ADSR envelope smoothing to a value
+   * @param previousValue - The previous frame's value
+   * @param targetValue - The current target value from audio data
+   * @returns The smoothed value with ADSR envelope applied
+   */
+  protected applyADSRSmoothing(previousValue: number, targetValue: number): number {
+    // Get ADSR parameters (0-100 scale)
+    const attack = this.options.adsrAttack ?? 20;
+    const decay = this.options.adsrDecay ?? 30;
+    const sustain = this.options.adsrSustain ?? 10;
+    const release = this.options.adsrRelease ?? 50;
+
+    // Calculate sustain floor based on target (higher target = higher sustain floor)
+    const sustainFloor = targetValue * (sustain / 100);
+
+    // Determine if we're in attack (rising) or release (falling) phase
+    if (targetValue > previousValue) {
+      // Attack phase - value is rising toward target
+      // Convert attack (0-100) to smoothing factor (0-1)
+      // 0 = instant (no smoothing), 100 = very slow (high smoothing)
+      const attackSmoothing = attack / 100;
+      const attackedValue = previousValue * attackSmoothing + targetValue * (1 - attackSmoothing);
+      return attackedValue;
+    } else {
+      // Release/decay phase - value is falling
+      // Apply sustain floor - don't let value fall below sustain level
+      const effectiveTarget = Math.max(targetValue, sustainFloor);
+
+      // If we're above sustain level, use decay rate; if below, use release rate
+      const isAboveSustain = previousValue > sustainFloor && targetValue >= sustainFloor * 0.5;
+      const releaseSmoothing = isAboveSustain ? (decay / 100) : (release / 100);
+
+      const releasedValue = previousValue * releaseSmoothing + effectiveTarget * (1 - releaseSmoothing);
+      return Math.max(releasedValue, sustainFloor);
+    }
+  }
 
   /**
    * Clean up resources

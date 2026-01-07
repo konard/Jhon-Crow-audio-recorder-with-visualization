@@ -10,3 +10,8 @@ export { SpectrogramVisualizer } from './SpectrogramVisualizer';
 export { SpiralWaveformVisualizer } from './SpiralWaveformVisualizer';
 export { RadialBarsVisualizer } from './RadialBarsVisualizer';
 export { FrequencyRingsVisualizer } from './FrequencyRingsVisualizer';
+export { DoubleSpiralVisualizer } from './DoubleSpiralVisualizer';
+export { PulseVisualizer } from './PulseVisualizer';
+export { WaterfallBarsVisualizer } from './WaterfallBarsVisualizer';
+export { GridVisualizer } from './GridVisualizer';
+export { LissajousVisualizer } from './LissajousVisualizer';
