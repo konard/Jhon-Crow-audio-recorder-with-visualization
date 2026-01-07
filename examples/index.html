@@ -1095,6 +1095,13 @@
               <option value="2160p">4K 2160p (3840x2160)</option>
             </select>
           </label>
+          <label>
+            Video Format
+            <select id="videoFormat" aria-label="Select video format">
+              <option value="webm" selected>WebM (VP9/VP8)</option>
+              <option value="mp4">MP4 (H.264)</option>
+            </select>
+          </label>
         </div>
         <div class="controls">
           <button id="convertBtn" class="btn-info" disabled data-tooltip="Convert selected audio file to video with visualization" aria-label="Convert audio to video">
@@ -1475,6 +1482,108 @@
           Blink Duration: <span id="blinkDurationValue">150ms</span>
           <input type="range" id="blinkDuration" min="50" max="500" value="150" step="50">
         </label>
+        <label style="flex-direction: row; align-items: center;" data-tooltip="Flip the visualization horizontally around the center">
+          <input type="checkbox" id="mirrorHorizontal" aria-label="Enable horizontal mirror"> Mirror Horizontal (Center Flip)
+        </label>
+        <label style="flex-direction: row; align-items: center;">
+          <input type="checkbox" id="useCustomColors" aria-label="Use custom colors"> Use Custom Colors (Primary/Secondary)
+        </label>
+      </div>
+      <div class="option-group" id="barShapeControls" style="display: none;">
+        <label>
+          Bar Shape
+          <select id="barShape" aria-label="Select bar shape">
+            <option value="rectangle">Rectangle</option>
+            <option value="rounded" selected>Rounded (Default)</option>
+            <option value="circle">Circle / Bubble</option>
+            <option value="triangle">Triangle</option>
+            <option value="diamond">Diamond</option>
+          </select>
+        </label>
+      </div>
+      <div class="option-group" id="particleShapeControls" style="display: none;">
+        <label>
+          Particle Shape
+          <select id="particleShape" aria-label="Select particle shape">
+            <option value="circle" selected>Circle (Default)</option>
+            <option value="square">Square</option>
+            <option value="triangle">Triangle</option>
+            <option value="diamond">Diamond</option>
+            <option value="star">Star</option>
+            <option value="heart">Heart</option>
+          </select>
+        </label>
+      </div>
+      <div class="option-group" id="centerImageControls" style="display: none;">
+        <label>
+          Center Image (for Circular visualizer)
+          <input type="file" id="centerImage" accept="image/*" aria-label="Upload center image">
+        </label>
+        <label id="centerImageZoomLabel">
+          Center Image Zoom
+          <input type="range" id="centerImageZoom" min="50" max="300" value="100" step="5">
+          <span id="centerImageZoomValue">100%</span>
+        </label>
+      </div>
+      <div class="option-group" id="centerImagePositionControls" style="display: none;">
+        <label>
+          Center Image X Offset
+          <input type="range" id="centerImageOffsetX" min="-100" max="100" value="0">
+          <span id="centerImageOffsetXValue">0px</span>
+        </label>
+        <label>
+          Center Image Y Offset
+          <input type="range" id="centerImageOffsetY" min="-100" max="100" value="0">
+          <span id="centerImageOffsetYValue">0px</span>
+        </label>
+        <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
+          Tip: Hold Shift and drag on canvas to move center image. Scroll over center image to zoom.
+        </p>
+      </div>
+      <div class="option-group">
+        <label>
+          Visualization Transparency
+          <input type="range" id="visualizationAlpha" min="0" max="1" step="0.01" value="1">
+          <span id="alphaValue">100%</span>
+        </label>
+      </div>
+      <div class="option-group">
+        <label>
+          Offset X (Horizontal Position)
+          <input type="range" id="offsetX" min="-200" max="200" value="0">
+          <span id="offsetXValue">0px</span>
+        </label>
+        <label>
+          Offset Y (Vertical Position)
+          <input type="range" id="offsetY" min="-200" max="200" value="0">
+          <span id="offsetYValue">0px</span>
+        </label>
+        <label data-tooltip="Scale the visualization size (50% - 200%)">
+          Visualization Scale
+          <input type="range" id="visualizationScale" min="50" max="200" value="100" step="5">
+          <span id="scaleValue">100%</span>
+        </label>
+      </div>
+      <div class="option-group">
+        <label>
+          Layer Effect
+          <select id="layerEffect" aria-label="Select layer effect">
+            <option value="none" selected>None</option>
+            <option value="blur">Blur</option>
+            <option value="brightness">Brightness</option>
+            <option value="contrast">Contrast</option>
+            <option value="grayscale">Grayscale</option>
+            <option value="invert">Invert</option>
+            <option value="sepia">Sepia</option>
+            <option value="saturate">Saturate</option>
+            <option value="hue-rotate">Hue Rotate</option>
+          </select>
+        </label>
+        <label>
+          Effect Intensity
+          <input type="range" id="layerEffectIntensity" min="0" max="100" value="50">
+          <span id="layerEffectIntensityValue">50%</span>
+        </label>
       </div>
     </div>
 
@@ -1597,6 +1706,11 @@
       const centerImageOffsetXValue = document.getElementById('centerImageOffsetXValue');
       const centerImageOffsetY = document.getElementById('centerImageOffsetY');
       const centerImageOffsetYValue = document.getElementById('centerImageOffsetYValue');
+      const barShapeControls = document.getElementById('barShapeControls');
+      const barShapeSelect = document.getElementById('barShape');
+      const particleShapeControls = document.getElementById('particleShapeControls');
+      const particleShapeSelect = document.getElementById('particleShape');
+      const videoFormat = document.getElementById('videoFormat');
 
       // Image blink controls
       const imageBlinkEnabled = document.getElementById('imageBlinkEnabled');
@@ -1655,6 +1769,7 @@
         backgroundWidth: 800,
         backgroundHeight: 400,
         videoQuality: '1080p',
+        videoFormat: 'webm',
         layerEffect: 'none',
         layerEffectIntensity: 50,
         useCustomColors: false,
@@ -1662,6 +1777,8 @@
         centerImageZoom: 100,
         centerImageOffsetX: 0,
         centerImageOffsetY: 0,
+        barShape: 'rounded',
+        particleShape: 'circle',
         imageBlinkEnabled: false,
         imageBlinkStyle: 'gradient-sweep',
         imageBlinkTarget: 'background',
@@ -1731,6 +1848,7 @@
           backgroundWidth: parseInt(bgCustomWidth.value),
           backgroundHeight: parseInt(bgCustomHeight.value),
           videoQuality: videoQuality.value,
+          videoFormat: videoFormat.value,
           layerEffect: layerEffect.value,
           layerEffectIntensity: parseInt(layerEffectIntensity.value),
           useCustomColors: useCustomColors.checked,
@@ -1738,6 +1856,8 @@
           centerImageZoom: parseInt(centerImageZoom.value),
           centerImageOffsetX: parseInt(centerImageOffsetX.value),
           centerImageOffsetY: parseInt(centerImageOffsetY.value),
+          barShape: barShapeSelect.value,
+          particleShape: particleShapeSelect.value,
           imageBlinkEnabled: imageBlinkEnabled.checked,
           imageBlinkStyle: imageBlinkStyle.value,
           imageBlinkTarget: imageBlinkTarget.value,
@@ -1844,6 +1964,19 @@
           currentCenterImageUrl = settings.centerImage;
         }
 
+        // Video format setting
+        videoFormat.value = settings.videoFormat || 'webm';
+
+        // Bar and particle shape settings
+        barShapeSelect.value = settings.barShape || 'rounded';
+        particleShapeSelect.value = settings.particleShape || 'circle';
+
+        // Show/hide shape controls based on visualizer type
+        const isBars = settings.visualizer === 'bars';
+        const isParticles = settings.visualizer === 'particles';
+        barShapeControls.style.display = isBars ? 'grid' : 'none';
+        particleShapeControls.style.display = isParticles ? 'grid' : 'none';
+
         // Apply presentation mode settings
         presentationWindowMode.value = settings.presentationWindowMode || 'alwaysOnTop';
         presentationWindowType.value = settings.presentationWindowType || 'frameless';
@@ -1919,6 +2052,16 @@
       if (savedSettings.useCustomColors) {
         visualizerOptions.custom.colorScheme = 'custom';
         visualizerOptions.custom.fillStyle = 'custom';
+      }
+
+      // Add bar shape if saved
+      if (savedSettings.barShape) {
+        visualizerOptions.custom.barShape = savedSettings.barShape;
+      }
+
+      // Add particle shape if saved
+      if (savedSettings.particleShape) {
+        visualizerOptions.custom.particleShape = savedSettings.particleShape;
       }
 
       // Add image blink settings if enabled
@@ -2032,6 +2175,8 @@
           visualizationScale.disabled = true;
           layerEffect.disabled = true;
           layerEffectIntensity.disabled = true;
+          barShapeSelect.disabled = true;
+          particleShapeSelect.disabled = true;
         } else {
           visualizerSelect.disabled = false;
           primaryColor.disabled = false;
@@ -2057,6 +2202,8 @@
           visualizationScale.disabled = false;
           layerEffect.disabled = false;
           layerEffectIntensity.disabled = false;
+          barShapeSelect.disabled = false;
+          particleShapeSelect.disabled = false;
         }
       }
 
@@ -2220,6 +2367,11 @@
         centerImageControls.style.display = isCircular ? 'grid' : 'none';
         // Show center image position controls only if circular and has center image
         centerImagePositionControls.style.display = (isCircular && currentCenterImageUrl) ? 'grid' : 'none';
+        // Show/hide shape controls based on visualizer type
+        const isBars = visualizerSelect.value === 'bars';
+        const isParticles = visualizerSelect.value === 'particles';
+        barShapeControls.style.display = isBars ? 'grid' : 'none';
+        particleShapeControls.style.display = isParticles ? 'grid' : 'none';
         updatePreview();
       });
 
@@ -2280,6 +2432,10 @@
           options.custom.centerImageOffsetX = parseInt(centerImageOffsetX.value);
           options.custom.centerImageOffsetY = parseInt(centerImageOffsetY.value);
         }
+        // Include bar shape (for bars visualizer)
+        options.custom.barShape = barShapeSelect.value;
+        // Include particle shape (for particles visualizer)
+        options.custom.particleShape = particleShapeSelect.value;
         // Include image blink settings if enabled
         if (imageBlinkEnabled.checked) {
           options.imageBlinkEnabled = true;
@@ -2532,6 +2688,25 @@
         recorder.setVisualizerOptions(getCurrentOptions());
         saveSettings(getCurrentSettings());
         updatePreview();
+      });
+
+      // Bar shape change handler
+      barShapeSelect.addEventListener('change', () => {
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Particle shape change handler
+      particleShapeSelect.addEventListener('change', () => {
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Video format change handler - persist setting
+      videoFormat.addEventListener('change', () => {
+        saveSettings(getCurrentSettings());
       });
 
       // Image blink enable/disable handler
@@ -2934,6 +3109,7 @@
             fps: 30,
             videoWidth: quality.width,
             videoHeight: quality.height,
+            format: videoFormat.value,
             onProgress: updateProgress,
           });
 
