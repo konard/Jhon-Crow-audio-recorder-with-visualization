@@ -63,7 +63,7 @@ export class PulseVisualizer extends BaseVisualizer {
     let bassIntensity = 0;
     const bassEnd = Math.floor(frequencyData.length * 0.15);
     for (let i = 0; i < bassEnd; i++) {
-      bassIntensity += frequencyData[i];
+      bassIntensity += this.applySensitivity(frequencyData[i]);
     }
     bassIntensity /= bassEnd * 255;
 

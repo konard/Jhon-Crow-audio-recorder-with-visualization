@@ -69,7 +69,8 @@ export class FrequencyRingsVisualizer extends BaseVisualizer {
     for (let i = 0; i < ringCount; i++) {
       // Use safe calculation to average frequency values
       const average = this.calculateBandAverage(frequencyDataSlice, i * bandSize, bandSize);
-      const targetValue = average / 255;
+      const sensitiveAverage = this.applySensitivity(average);
+      const targetValue = sensitiveAverage / 255;
       this.previousValues[i] = this.applyADSRSmoothing(this.previousValues[i], targetValue);
     }
 

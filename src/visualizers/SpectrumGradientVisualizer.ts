@@ -79,8 +79,9 @@ export class SpectrumGradientVisualizer extends BaseVisualizer {
       // Average frequency values for this bar using safe calculation
       const average = this.calculateBandAverage(frequencyDataSlice, i * step, step);
 
-      // Normalize to 0-1 and apply ADSR envelope smoothing
-      const targetHeight = (average / 255) * height;
+      // Apply sensitivity, normalize to 0-1 and apply ADSR envelope smoothing
+      const sensitiveAverage = this.applySensitivity(average);
+      const targetHeight = (sensitiveAverage / 255) * height;
       const smoothedHeight = this.applyADSRSmoothing(this.previousHeights[i], targetHeight);
       this.previousHeights[i] = smoothedHeight;
 

@@ -113,6 +113,8 @@ export interface VisualizerOptions {
   adsrSustain?: number;
   /** ADSR Release time (0-100) - how quickly visualization fades when audio stops. 0 = instant, 100 = slow release */
   adsrRelease?: number;
+  /** Visualization sensitivity multiplier (0.1-5.0) - controls how responsive visualization is to audio. 1.0 = normal, >1.0 = more sensitive, <1.0 = less sensitive */
+  sensitivity?: number;
   /** Background image or GIF */
   backgroundImage?: HTMLImageElement | string;
   /** Background image sizing mode (cover, contain, stretch, tile, center, custom) */

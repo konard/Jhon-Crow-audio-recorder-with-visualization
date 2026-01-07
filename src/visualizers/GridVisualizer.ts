@@ -80,11 +80,13 @@ export class GridVisualizer extends BaseVisualizer {
         if (reactToFrequency) {
           const cellIndex = row * gridCols + col;
           const freqIndex = Math.floor((cellIndex / totalCells) * frequencyData.length);
-          intensity = frequencyData[freqIndex] / 255;
+          const rawValue = frequencyData[freqIndex];
+          const sensitiveValue = this.applySensitivity(rawValue);
+          intensity = sensitiveValue / 255;
         } else {
           // Random pattern based on overall audio
           const avgIntensity =
-            frequencyData.reduce((sum, val) => sum + val, 0) / (frequencyData.length * 255);
+            frequencyData.reduce((sum, val) => sum + this.applySensitivity(val), 0) / (frequencyData.length * 255);
           intensity = Math.random() * avgIntensity;
         }
 

@@ -63,7 +63,8 @@ export class WaterfallBarsVisualizer extends BaseVisualizer {
       for (let j = 0; j < step; j++) {
         sum += frequencyData[i * step + j];
       }
-      currentData.push(sum / step);
+      const average = sum / step;
+      currentData.push(this.applySensitivity(average));
     }
 
     this.history.unshift(currentData);

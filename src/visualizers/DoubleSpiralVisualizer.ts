@@ -88,8 +88,9 @@ export class DoubleSpiralVisualizer extends BaseVisualizer {
         }
         const average = sum / step;
 
-        // Normalize and apply smoothing
-        const targetHeight = (average / 255) * 30;
+        // Apply sensitivity, normalize and apply smoothing
+        const sensitiveAverage = this.applySensitivity(average);
+        const targetHeight = (sensitiveAverage / 255) * 30;
         const smoothedHeight =
           this.previousHeights[i] * smoothing + targetHeight * (1 - smoothing);
         this.previousHeights[i] = smoothedHeight;

@@ -124,8 +124,9 @@ export class CircularVisualizer extends BaseVisualizer {
       // Average frequency values for this bar using safe calculation
       const average = this.calculateBandAverage(frequencyDataSlice, i * step, step);
 
-      // Normalize and apply ADSR envelope smoothing
-      const targetHeight = (average / 255) * maxBarHeight;
+      // Apply sensitivity, normalize and apply ADSR envelope smoothing
+      const sensitiveAverage = this.applySensitivity(average);
+      const targetHeight = (sensitiveAverage / 255) * maxBarHeight;
       const smoothedHeight = this.applyADSRSmoothing(this.previousHeights[i], targetHeight);
       this.previousHeights[i] = smoothedHeight;
 
@@ -164,7 +165,7 @@ export class CircularVisualizer extends BaseVisualizer {
         // Use rainbow colors based on position
         const hue = (i / barCount) * 360;
         const saturation = 80;
-        const lightness = 50 + (average / 255) * 20;
+        const lightness = 50 + (sensitiveAverage / 255) * 20;
         ctx.strokeStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
       }
 

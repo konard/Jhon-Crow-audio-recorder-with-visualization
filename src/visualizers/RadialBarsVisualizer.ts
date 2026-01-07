@@ -78,8 +78,9 @@ export class RadialBarsVisualizer extends BaseVisualizer {
       // Average frequency values for this bar using safe calculation
       const average = this.calculateBandAverage(frequencyDataSlice, i * step, step);
 
-      // Normalize and apply ADSR envelope smoothing
-      const targetHeight = (average / 255) * (endRadius - startRadius);
+      // Apply sensitivity, normalize and apply ADSR envelope smoothing
+      const sensitiveAverage = this.applySensitivity(average);
+      const targetHeight = (sensitiveAverage / 255) * (endRadius - startRadius);
       const smoothedHeight = this.applyADSRSmoothing(this.previousHeights[i], targetHeight);
       this.previousHeights[i] = smoothedHeight;
 

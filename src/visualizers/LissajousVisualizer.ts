@@ -66,8 +66,11 @@ export class LissajousVisualizer extends BaseVisualizer {
     const ySample = Math.floor(dataLength / 2 + dataLength / 4);
 
     // Normalize values to -1 to 1
-    const xValue = (timeDomainData[xSample] / 128.0 - 1.0) * Math.cos(phaseOffset);
-    const yValue = (timeDomainData[ySample] / 128.0 - 1.0) * Math.sin(phaseOffset);
+    const sensitivity = this.options.sensitivity ?? 1.0;
+    const xNorm = timeDomainData[xSample] / 128.0 - 1.0;
+    const yNorm = timeDomainData[ySample] / 128.0 - 1.0;
+    const xValue = Math.max(-1, Math.min(1, xNorm * sensitivity)) * Math.cos(phaseOffset);
+    const yValue = Math.max(-1, Math.min(1, yNorm * sensitivity)) * Math.sin(phaseOffset);
 
     // Calculate position with frequency ratio
     const x = centerX + xValue * size * frequencyRatio;

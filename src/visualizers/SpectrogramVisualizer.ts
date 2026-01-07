@@ -100,10 +100,11 @@ export class SpectrogramVisualizer extends BaseVisualizer {
         for (let i = 0; i < rangeLength; i++) {
           const freqIndex = startIdx + Math.floor((i / rangeLength) * (endIdx - startIdx));
           const value = frequencyDataSlice[freqIndex];
+          const sensitiveValue = this.applySensitivity(value);
           const y = (i / rangeLength) * height;
           const barHeight = Math.max(1, height / rangeLength);
 
-          this.historyCtx.fillStyle = this.getColor(value, colorScheme);
+          this.historyCtx.fillStyle = this.getColor(sensitiveValue, colorScheme);
           this.historyCtx.fillRect(width - scrollWidth, y, scrollWidth, barHeight);
         }
       } else {
@@ -118,10 +119,11 @@ export class SpectrogramVisualizer extends BaseVisualizer {
         for (let i = 0; i < rangeLength; i++) {
           const freqIndex = startIdx + Math.floor((i / rangeLength) * (endIdx - startIdx));
           const value = frequencyDataSlice[freqIndex];
+          const sensitiveValue = this.applySensitivity(value);
           const x = (i / rangeLength) * width;
           const barWidth = Math.max(1, width / rangeLength);
 
-          this.historyCtx.fillStyle = this.getColor(value, colorScheme);
+          this.historyCtx.fillStyle = this.getColor(sensitiveValue, colorScheme);
           this.historyCtx.fillRect(x, height - scrollHeight, barWidth, scrollHeight);
         }
       }
