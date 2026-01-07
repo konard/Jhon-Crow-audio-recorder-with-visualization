@@ -14,6 +14,13 @@ export {
   BarVisualizer,
   CircularVisualizer,
   ParticleVisualizer,
+  SpectrumGradientVisualizer,
+  GlowWaveformVisualizer,
+  VUMeterVisualizer,
+  SpectrogramVisualizer,
+  SpiralWaveformVisualizer,
+  RadialBarsVisualizer,
+  FrequencyRingsVisualizer,
 } from './visualizers';
 
 // Type exports
