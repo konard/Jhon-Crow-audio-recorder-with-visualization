@@ -1,6 +1,11 @@
 import { VisualizationData, VisualizerOptions } from '../types';
 import { BaseVisualizer } from './BaseVisualizer';
 
+/**
+ * Particle shape types
+ */
+export type ParticleShape = 'circle' | 'square' | 'triangle' | 'diamond' | 'star' | 'heart';
+
 interface Particle {
   x: number;
   y: number;
@@ -32,6 +37,7 @@ export class ParticleVisualizer extends BaseVisualizer {
         particleSpeedFactor: 2,
         spawnRate: 5, // Particles per frame based on audio level
         useCustomColors: false, // Use primary/secondary colors instead of rainbow
+        particleShape: 'circle' as ParticleShape, // Default particle shape
         ...options.custom,
       },
     });
@@ -162,20 +168,194 @@ export class ParticleVisualizer extends BaseVisualizer {
       const alpha = p.life * visualizationAlpha;
       const radius = p.radius * (0.5 + p.life * 0.5);
 
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+      // Get particle shape from custom options
+      const particleShape = (this.options.custom?.particleShape as ParticleShape) || 'circle';
+
+      // Draw particle with selected shape
       ctx.fillStyle = `hsla(${p.hue}, 80%, 60%, ${alpha})`;
-      ctx.fill();
+      this.drawParticleShape(ctx, p.x, p.y, radius, particleShape);
 
       // Add glow effect
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, radius * 2, 0, Math.PI * 2);
       ctx.fillStyle = `hsla(${p.hue}, 80%, 60%, ${alpha * 0.2})`;
-      ctx.fill();
+      this.drawParticleShape(ctx, p.x, p.y, radius * 2, particleShape);
     }
 
     // Draw foreground
     this.drawForeground(ctx, data);
+  }
+
+  /**
+   * Draw particle with specified shape
+   */
+  private drawParticleShape(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    radius: number,
+    shape: ParticleShape
+  ): void {
+    switch (shape) {
+      case 'circle':
+        this.drawCircleParticle(ctx, x, y, radius);
+        break;
+      case 'square':
+        this.drawSquareParticle(ctx, x, y, radius);
+        break;
+      case 'triangle':
+        this.drawTriangleParticle(ctx, x, y, radius);
+        break;
+      case 'diamond':
+        this.drawDiamondParticle(ctx, x, y, radius);
+        break;
+      case 'star':
+        this.drawStarParticle(ctx, x, y, radius);
+        break;
+      case 'heart':
+        this.drawHeartParticle(ctx, x, y, radius);
+        break;
+      default:
+        this.drawCircleParticle(ctx, x, y, radius);
+    }
+  }
+
+  /**
+   * Draw a circle particle
+   */
+  private drawCircleParticle(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    radius: number
+  ): void {
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /**
+   * Draw a square particle
+   */
+  private drawSquareParticle(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    radius: number
+  ): void {
+    const size = radius * 2;
+    ctx.fillRect(x - radius, y - radius, size, size);
+  }
+
+  /**
+   * Draw a triangle particle
+   */
+  private drawTriangleParticle(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    radius: number
+  ): void {
+    const height = radius * 1.732; // sqrt(3) for equilateral triangle
+    ctx.beginPath();
+    ctx.moveTo(x, y - height * 0.667); // Top point
+    ctx.lineTo(x + radius, y + height * 0.333); // Bottom right
+    ctx.lineTo(x - radius, y + height * 0.333); // Bottom left
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  /**
+   * Draw a diamond particle
+   */
+  private drawDiamondParticle(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    radius: number
+  ): void {
+    ctx.beginPath();
+    ctx.moveTo(x, y - radius); // Top point
+    ctx.lineTo(x + radius, y); // Right point
+    ctx.lineTo(x, y + radius); // Bottom point
+    ctx.lineTo(x - radius, y); // Left point
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  /**
+   * Draw a star particle (5-pointed)
+   */
+  private drawStarParticle(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    radius: number
+  ): void {
+    const spikes = 5;
+    const outerRadius = radius;
+    const innerRadius = radius * 0.5;
+    let rot = (Math.PI / 2) * 3;
+    const step = Math.PI / spikes;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y - outerRadius);
+
+    for (let i = 0; i < spikes; i++) {
+      ctx.lineTo(
+        x + Math.cos(rot) * outerRadius,
+        y + Math.sin(rot) * outerRadius
+      );
+      rot += step;
+
+      ctx.lineTo(
+        x + Math.cos(rot) * innerRadius,
+        y + Math.sin(rot) * innerRadius
+      );
+      rot += step;
+    }
+
+    ctx.lineTo(x, y - outerRadius);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  /**
+   * Draw a heart particle
+   */
+  private drawHeartParticle(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    radius: number
+  ): void {
+    ctx.beginPath();
+    ctx.moveTo(x, y + radius * 0.3);
+
+    // Left side of heart
+    ctx.bezierCurveTo(
+      x, y - radius * 0.3,
+      x - radius, y - radius * 0.3,
+      x - radius, y + radius * 0.15
+    );
+    ctx.bezierCurveTo(
+      x - radius, y + radius * 0.6,
+      x, y + radius * 0.8,
+      x, y + radius
+    );
+
+    // Right side of heart
+    ctx.bezierCurveTo(
+      x, y + radius * 0.8,
+      x + radius, y + radius * 0.6,
+      x + radius, y + radius * 0.15
+    );
+    ctx.bezierCurveTo(
+      x + radius, y - radius * 0.3,
+      x, y - radius * 0.3,
+      x, y + radius * 0.3
+    );
+
+    ctx.closePath();
+    ctx.fill();
   }
 
   /**

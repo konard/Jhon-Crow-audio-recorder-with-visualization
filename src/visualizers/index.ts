@@ -1,8 +1,8 @@
 export { BaseVisualizer } from './BaseVisualizer';
 export { WaveformVisualizer } from './WaveformVisualizer';
-export { BarVisualizer } from './BarVisualizer';
+export { BarVisualizer, type BarShape } from './BarVisualizer';
 export { CircularVisualizer } from './CircularVisualizer';
-export { ParticleVisualizer } from './ParticleVisualizer';
+export { ParticleVisualizer, type ParticleShape } from './ParticleVisualizer';
 export { SpectrumGradientVisualizer } from './SpectrumGradientVisualizer';
 export { GlowWaveformVisualizer } from './GlowWaveformVisualizer';
 export { VUMeterVisualizer } from './VUMeterVisualizer';
