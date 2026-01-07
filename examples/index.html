@@ -1727,6 +1727,9 @@
       const blinkDuration = document.getElementById('blinkDuration');
       const blinkDurationValue = document.getElementById('blinkDurationValue');
 
+      // Flag to prevent recursive event handling for dual range sliders
+      let isUpdatingBlinkFrequencyProgrammatically = false;
+
       // Presentation mode elements
       const presentationTab = document.getElementById('presentationTab');
       const togglePresentationBtn = document.getElementById('togglePresentationBtn');
@@ -2734,10 +2737,17 @@
 
       // Image blink frequency range handlers
       blinkFrequencyMin.addEventListener('input', () => {
+        // Prevent recursive event handling from programmatic value changes
+        if (isUpdatingBlinkFrequencyProgrammatically) {
+          return;
+        }
+
         const min = parseInt(blinkFrequencyMin.value);
         const max = parseInt(blinkFrequencyMax.value);
         if (min > max) {
+          isUpdatingBlinkFrequencyProgrammatically = true;
           blinkFrequencyMax.value = min;
+          isUpdatingBlinkFrequencyProgrammatically = false;
         }
         blinkFrequencyValue.textContent = `${min} - ${parseInt(blinkFrequencyMax.value)}`;
         recorder.setVisualizerOptions(getCurrentOptions());
@@ -2746,10 +2756,17 @@
       });
 
       blinkFrequencyMax.addEventListener('input', () => {
+        // Prevent recursive event handling from programmatic value changes
+        if (isUpdatingBlinkFrequencyProgrammatically) {
+          return;
+        }
+
         const min = parseInt(blinkFrequencyMin.value);
         const max = parseInt(blinkFrequencyMax.value);
         if (max < min) {
+          isUpdatingBlinkFrequencyProgrammatically = true;
           blinkFrequencyMin.value = max;
+          isUpdatingBlinkFrequencyProgrammatically = false;
         }
         blinkFrequencyValue.textContent = `${parseInt(blinkFrequencyMin.value)} - ${max}`;
         recorder.setVisualizerOptions(getCurrentOptions());
