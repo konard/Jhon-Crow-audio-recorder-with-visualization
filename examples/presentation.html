@@ -41,6 +41,8 @@
       /* Hardware acceleration */
       transform: translateZ(0);
       -webkit-transform: translateZ(0);
+      /* Object fit to maintain aspect ratio while filling container */
+      object-fit: contain;
     }
 
     /* Background layer with configurable opacity */
@@ -64,23 +66,8 @@
   <!-- Visualization canvas -->
   <canvas id="visualizer"></canvas>
 
-  <script src="../dist/audio-recorder-visualization.umd.js"></script>
   <script>
-    (async function() {
-      // Wait for library to load
-      await new Promise(resolve => {
-        if (window.AudioRecorderVisualization) {
-          resolve();
-        } else {
-          const interval = setInterval(() => {
-            if (window.AudioRecorderVisualization) {
-              clearInterval(interval);
-              resolve();
-            }
-          }, 100);
-        }
-      });
-
+    (function() {
       const canvas = document.getElementById('visualizer');
       const backgroundLayer = document.getElementById('background-layer');
       const ctx = canvas.getContext('2d');
@@ -88,9 +75,12 @@
       // Presentation settings
       let settings = {
         backgroundOpacity: 0,
-        visualizerType: 'bars',
-        visualizerOptions: {},
       };
+
+      // Image element for receiving frames from main window
+      const frameImage = new Image();
+      let pendingImageData = null;
+      let isImageLoading = false;
 
       // Resize canvas to window
       function resizeCanvas() {
@@ -106,73 +96,66 @@
         backgroundLayer.style.opacity = opacity;
       }
 
-      // Create visualizer instance (will receive frame data from main window)
-      let currentVisualizerType = 'bars';
-      let visualizerOptions = {
-        primaryColor: '#00ff88',
-        secondaryColor: '#0088ff',
-        backgroundColor: 'transparent', // Always transparent for presentation
-        barCount: 64,
-        mirror: false,
-        mirrorHorizontal: false,
-        visualizationAlpha: 1,
-        offsetX: 0,
-        offsetY: 0,
-        scale: 1,
-      };
+      // Draw the received frame image to canvas
+      function drawFrame(imageData, sourceWidth, sourceHeight) {
+        // Queue the frame if we're still loading the previous one
+        if (isImageLoading) {
+          pendingImageData = { imageData, sourceWidth, sourceHeight };
+          return;
+        }
 
-      // Get the visualizer class
-      const {
-        BarVisualizer,
-        WaveformVisualizer,
-        CircularVisualizer,
-        ParticleVisualizer,
-        SpectrumGradientVisualizer,
-        GlowWaveformVisualizer,
-        VUMeterVisualizer,
-        SpectrogramVisualizer,
-        SpiralWaveformVisualizer,
-        RadialBarsVisualizer,
-        FrequencyRingsVisualizer,
-      } = window.AudioRecorderVisualization;
+        isImageLoading = true;
+        frameImage.onload = function() {
+          // Clear canvas with transparent background
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const visualizerMap = {
-        'bars': BarVisualizer,
-        'waveform': WaveformVisualizer,
-        'circular': CircularVisualizer,
-        'particles': ParticleVisualizer,
-        'spectrum-gradient': SpectrumGradientVisualizer,
-        'glow-waveform': GlowWaveformVisualizer,
-        'vu-meter': VUMeterVisualizer,
-        'spectrogram': SpectrogramVisualizer,
-        'spiral-waveform': SpiralWaveformVisualizer,
-        'radial-bars': RadialBarsVisualizer,
-        'frequency-rings': FrequencyRingsVisualizer,
-      };
+          // Calculate scaling to fit while maintaining aspect ratio
+          const sourceAspect = sourceWidth / sourceHeight;
+          const canvasAspect = canvas.width / canvas.height;
 
-      let visualizer = null;
+          let drawWidth, drawHeight, drawX, drawY;
 
-      // Create/recreate visualizer
-      async function createVisualizer(type, options) {
-        const VisualizerClass = visualizerMap[type] || BarVisualizer;
+          if (sourceAspect > canvasAspect) {
+            // Source is wider - fit to width
+            drawWidth = canvas.width;
+            drawHeight = canvas.width / sourceAspect;
+            drawX = 0;
+            drawY = (canvas.height - drawHeight) / 2;
+          } else {
+            // Source is taller - fit to height
+            drawHeight = canvas.height;
+            drawWidth = canvas.height * sourceAspect;
+            drawX = (canvas.width - drawWidth) / 2;
+            drawY = 0;
+          }
 
-        // Always set backgroundColor to transparent for presentation
-        const presentationOptions = {
-          ...options,
-          backgroundColor: 'transparent',
+          // Draw the received frame
+          ctx.drawImage(frameImage, drawX, drawY, drawWidth, drawHeight);
+
+          isImageLoading = false;
+
+          // Process pending frame if any
+          if (pendingImageData) {
+            const pending = pendingImageData;
+            pendingImageData = null;
+            drawFrame(pending.imageData, pending.sourceWidth, pending.sourceHeight);
+          }
         };
 
-        visualizer = new VisualizerClass(canvas, presentationOptions);
-        currentVisualizerType = type;
+        frameImage.onerror = function() {
+          console.error('Failed to load frame image');
+          isImageLoading = false;
 
-        // Wait for visualizer to be ready (images to load, etc.)
-        if (visualizer.ready) {
-          await visualizer.ready();
-        }
+          // Process pending frame if any
+          if (pendingImageData) {
+            const pending = pendingImageData;
+            pendingImageData = null;
+            drawFrame(pending.imageData, pending.sourceWidth, pending.sourceHeight);
+          }
+        };
+
+        frameImage.src = imageData;
       }
-
-      // Initialize with default visualizer
-      await createVisualizer(currentVisualizerType, visualizerOptions);
 
       // Handle settings updates from main process
       if (window.presentationAPI) {
@@ -187,47 +170,20 @@
 
         // Handle frame data from main window
         window.presentationAPI.onFrame((frameData) => {
-          if (!visualizer) return;
-
-          // Render frame with the received audio data
-          if (frameData && frameData.frequencyData && frameData.timeDomainData) {
-            // Convert arrays back to Uint8Array if needed
-            const frequencyData = frameData.frequencyData instanceof Uint8Array
-              ? frameData.frequencyData
-              : new Uint8Array(frameData.frequencyData);
-            const timeDomainData = frameData.timeDomainData instanceof Uint8Array
-              ? frameData.timeDomainData
-              : new Uint8Array(frameData.timeDomainData);
-
-            // Clear canvas with transparent background
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Draw visualization
-            visualizer.draw(frequencyData, timeDomainData);
+          // Render the received canvas image
+          if (frameData && frameData.imageData) {
+            drawFrame(frameData.imageData, frameData.width, frameData.height);
           }
         });
 
-        // Handle visualizer options changes
-        window.presentationAPI.onVisualizerOptions(async (options) => {
-          visualizerOptions = { ...visualizerOptions, ...options };
-
-          // Always ensure transparent background for presentation
-          visualizerOptions.backgroundColor = 'transparent';
-
-          // Update visualizer options
-          if (visualizer && visualizer.setOptions) {
-            await visualizer.setOptions(visualizerOptions);
-          } else {
-            // Recreate visualizer with new options
-            await createVisualizer(currentVisualizerType, visualizerOptions);
-          }
+        // Visualizer options/type changes are handled by main window now
+        // The presentation window just displays what it receives
+        window.presentationAPI.onVisualizerOptions(() => {
+          // No action needed - main window handles visualization
         });
 
-        // Handle visualizer type changes
-        window.presentationAPI.onVisualizerType(async (type) => {
-          if (type !== currentVisualizerType) {
-            await createVisualizer(type, visualizerOptions);
-          }
+        window.presentationAPI.onVisualizerType(() => {
+          // No action needed - main window handles visualization
         });
       }
 
@@ -250,7 +206,7 @@
         e.preventDefault();
       });
 
-      console.log('Presentation window initialized');
+      console.log('Presentation window initialized (canvas mirroring mode)');
     })();
   </script>
 </body>

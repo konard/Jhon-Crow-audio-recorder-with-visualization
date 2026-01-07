@@ -3303,17 +3303,17 @@ Drag on canvas - Move visualization position`);
         presentationFrameInterval = setInterval(() => {
           if (!isPresentationActive || !window.electronAPI) return;
 
-          // Get current audio data from recorder
-          const frequencyData = recorder.getFrequencyData();
-          const timeDomainData = recorder.getTimeDomainData();
+          // Send the rendered canvas image directly to the presentation window
+          // This includes background image, layer effects, center image, and visualization
+          // Using lower quality JPEG for better performance over IPC
+          const imageData = canvas.toDataURL('image/jpeg', 0.85);
 
-          if (frequencyData && timeDomainData) {
-            // Send frame data to presentation window
-            window.electronAPI.presentationSendFrame({
-              frequencyData: Array.from(frequencyData),
-              timeDomainData: Array.from(timeDomainData),
-            });
-          }
+          // Send canvas image to presentation window
+          window.electronAPI.presentationSendFrame({
+            imageData: imageData,
+            width: canvas.width,
+            height: canvas.height,
+          });
         }, 33); // ~30fps
       }
 
