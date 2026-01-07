@@ -1373,6 +1373,50 @@
 
         </div>
       </div>
+      <div class="option-group">
+        <h4 style="grid-column: 1 / -1; margin-bottom: 8px; font-size: 16px; color: var(--color-primary);">Image Blink Effects (Frequency-Based)</h4>
+        <label style="flex-direction: row; align-items: center;" data-tooltip="Enable image blinking based on audio frequency and volume">
+          <input type="checkbox" id="imageBlinkEnabled" aria-label="Enable image blink"> Enable Image Blink
+        </label>
+      </div>
+      <div class="option-group" id="imageBlinkControls" style="display: none;">
+        <label data-tooltip="Choose the visual effect style for image blinking">
+          Blink Style
+          <select id="imageBlinkStyle" aria-label="Select blink style">
+            <option value="gradient-sweep" selected>Gradient Sweep</option>
+            <option value="negative-flash">Negative Flash</option>
+            <option value="brightness-pulse">Brightness Pulse</option>
+            <option value="color-flash">Color Flash</option>
+          </select>
+        </label>
+        <label data-tooltip="Choose which image layer(s) to apply the blink effect">
+          Blink Target
+          <select id="imageBlinkTarget" aria-label="Select blink target">
+            <option value="background" selected>Background</option>
+            <option value="foreground">Foreground</option>
+            <option value="both">Both</option>
+          </select>
+        </label>
+        <label data-tooltip="Frequency range in Hz to monitor for blinking trigger">
+          Frequency Range (Hz): <span id="blinkFrequencyValue">60 - 250</span>
+          <div style="display: flex; gap: 8px;">
+            <input type="range" id="blinkFrequencyMin" min="20" max="500" value="60" style="flex: 1;">
+            <input type="range" id="blinkFrequencyMax" min="20" max="2000" value="250" style="flex: 1;">
+          </div>
+        </label>
+        <label data-tooltip="Volume threshold (0-255) that must be exceeded to trigger blink">
+          Volume Threshold: <span id="blinkThresholdValue">200</span>
+          <input type="range" id="blinkThreshold" min="50" max="255" value="200">
+        </label>
+        <label data-tooltip="Intensity of the blink effect (0-100%)">
+          Blink Intensity: <span id="blinkIntensityValue">80%</span>
+          <input type="range" id="blinkIntensity" min="0" max="100" value="80">
+        </label>
+        <label data-tooltip="Duration of blink effect in milliseconds">
+          Blink Duration: <span id="blinkDurationValue">150ms</span>
+          <input type="range" id="blinkDuration" min="50" max="500" value="150" step="50">
+        </label>
+      </div>
     </div>
 
     <div class="recordings" id="recordings">
@@ -1494,6 +1538,21 @@
       const centerImageOffsetY = document.getElementById('centerImageOffsetY');
       const centerImageOffsetYValue = document.getElementById('centerImageOffsetYValue');
 
+      // Image blink controls
+      const imageBlinkEnabled = document.getElementById('imageBlinkEnabled');
+      const imageBlinkControls = document.getElementById('imageBlinkControls');
+      const imageBlinkStyle = document.getElementById('imageBlinkStyle');
+      const imageBlinkTarget = document.getElementById('imageBlinkTarget');
+      const blinkFrequencyMin = document.getElementById('blinkFrequencyMin');
+      const blinkFrequencyMax = document.getElementById('blinkFrequencyMax');
+      const blinkFrequencyValue = document.getElementById('blinkFrequencyValue');
+      const blinkThreshold = document.getElementById('blinkThreshold');
+      const blinkThresholdValue = document.getElementById('blinkThresholdValue');
+      const blinkIntensity = document.getElementById('blinkIntensity');
+      const blinkIntensityValue = document.getElementById('blinkIntensityValue');
+      const blinkDuration = document.getElementById('blinkDuration');
+      const blinkDurationValue = document.getElementById('blinkDurationValue');
+
       // Settings persistence
       const SETTINGS_KEY = 'audio-recorder-settings';
 
@@ -1528,6 +1587,14 @@
         centerImageZoom: 100,
         centerImageOffsetX: 0,
         centerImageOffsetY: 0,
+        imageBlinkEnabled: false,
+        imageBlinkStyle: 'gradient-sweep',
+        imageBlinkTarget: 'background',
+        imageBlinkFrequencyMin: 60,
+        imageBlinkFrequencyMax: 250,
+        imageBlinkThreshold: 200,
+        imageBlinkIntensity: 80,
+        imageBlinkDuration: 150,
       };
 
       // Load settings from localStorage
@@ -1588,6 +1655,14 @@
           centerImageZoom: parseInt(centerImageZoom.value),
           centerImageOffsetX: parseInt(centerImageOffsetX.value),
           centerImageOffsetY: parseInt(centerImageOffsetY.value),
+          imageBlinkEnabled: imageBlinkEnabled.checked,
+          imageBlinkStyle: imageBlinkStyle.value,
+          imageBlinkTarget: imageBlinkTarget.value,
+          imageBlinkFrequencyMin: parseInt(blinkFrequencyMin.value),
+          imageBlinkFrequencyMax: parseInt(blinkFrequencyMax.value),
+          imageBlinkThreshold: parseInt(blinkThreshold.value),
+          imageBlinkIntensity: parseInt(blinkIntensity.value),
+          imageBlinkDuration: parseInt(blinkDuration.value),
         };
       }
 
@@ -1649,6 +1724,23 @@
         centerImageOffsetXValue.textContent = (settings.centerImageOffsetX || 0) + 'px';
         centerImageOffsetY.value = settings.centerImageOffsetY || 0;
         centerImageOffsetYValue.textContent = (settings.centerImageOffsetY || 0) + 'px';
+
+        // Image blink settings
+        imageBlinkEnabled.checked = settings.imageBlinkEnabled || false;
+        imageBlinkStyle.value = settings.imageBlinkStyle || 'gradient-sweep';
+        imageBlinkTarget.value = settings.imageBlinkTarget || 'background';
+        blinkFrequencyMin.value = settings.imageBlinkFrequencyMin || 60;
+        blinkFrequencyMax.value = settings.imageBlinkFrequencyMax || 250;
+        blinkFrequencyValue.textContent = `${settings.imageBlinkFrequencyMin || 60} - ${settings.imageBlinkFrequencyMax || 250}`;
+        blinkThreshold.value = settings.imageBlinkThreshold || 200;
+        blinkThresholdValue.textContent = settings.imageBlinkThreshold || 200;
+        blinkIntensity.value = settings.imageBlinkIntensity || 80;
+        blinkIntensityValue.textContent = `${settings.imageBlinkIntensity || 80}%`;
+        blinkDuration.value = settings.imageBlinkDuration || 150;
+        blinkDurationValue.textContent = `${settings.imageBlinkDuration || 150}ms`;
+
+        // Show/hide image blink controls
+        imageBlinkControls.style.display = (settings.imageBlinkEnabled || false) ? 'grid' : 'none';
 
         // Restore background image if saved
         if (settings.backgroundImage) {
@@ -1721,6 +1813,20 @@
       if (savedSettings.useCustomColors) {
         visualizerOptions.custom.colorScheme = 'custom';
         visualizerOptions.custom.fillStyle = 'custom';
+      }
+
+      // Add image blink settings if enabled
+      if (savedSettings.imageBlinkEnabled) {
+        visualizerOptions.imageBlinkEnabled = true;
+        visualizerOptions.imageBlinkFrequencyRange = {
+          min: savedSettings.imageBlinkFrequencyMin || 60,
+          max: savedSettings.imageBlinkFrequencyMax || 250,
+        };
+        visualizerOptions.imageBlinkVolumeThreshold = savedSettings.imageBlinkThreshold || 200;
+        visualizerOptions.imageBlinkStyle = savedSettings.imageBlinkStyle || 'gradient-sweep';
+        visualizerOptions.imageBlinkIntensity = savedSettings.imageBlinkIntensity || 80;
+        visualizerOptions.imageBlinkTarget = savedSettings.imageBlinkTarget || 'background';
+        visualizerOptions.imageBlinkDuration = savedSettings.imageBlinkDuration || 150;
       }
 
       const recorder = new AudioRecorder({
@@ -2067,6 +2173,21 @@
           options.custom.centerImageOffsetX = parseInt(centerImageOffsetX.value);
           options.custom.centerImageOffsetY = parseInt(centerImageOffsetY.value);
         }
+        // Include image blink settings if enabled
+        if (imageBlinkEnabled.checked) {
+          options.imageBlinkEnabled = true;
+          options.imageBlinkFrequencyRange = {
+            min: parseInt(blinkFrequencyMin.value),
+            max: parseInt(blinkFrequencyMax.value),
+          };
+          options.imageBlinkVolumeThreshold = parseInt(blinkThreshold.value);
+          options.imageBlinkStyle = imageBlinkStyle.value;
+          options.imageBlinkIntensity = parseInt(blinkIntensity.value);
+          options.imageBlinkTarget = imageBlinkTarget.value;
+          options.imageBlinkDuration = parseInt(blinkDuration.value);
+        } else {
+          options.imageBlinkEnabled = false;
+        }
         return options;
       }
 
@@ -2291,6 +2412,81 @@
 
       // Use custom colors checkbox handler
       useCustomColors.addEventListener('change', () => {
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Image blink enable/disable handler
+      imageBlinkEnabled.addEventListener('change', () => {
+        const enabled = imageBlinkEnabled.checked;
+        imageBlinkControls.style.display = enabled ? 'grid' : 'none';
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Image blink style handler
+      imageBlinkStyle.addEventListener('change', () => {
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Image blink target handler
+      imageBlinkTarget.addEventListener('change', () => {
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Image blink frequency range handlers
+      blinkFrequencyMin.addEventListener('input', () => {
+        const min = parseInt(blinkFrequencyMin.value);
+        const max = parseInt(blinkFrequencyMax.value);
+        if (min > max) {
+          blinkFrequencyMax.value = min;
+        }
+        blinkFrequencyValue.textContent = `${min} - ${parseInt(blinkFrequencyMax.value)}`;
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      blinkFrequencyMax.addEventListener('input', () => {
+        const min = parseInt(blinkFrequencyMin.value);
+        const max = parseInt(blinkFrequencyMax.value);
+        if (max < min) {
+          blinkFrequencyMin.value = max;
+        }
+        blinkFrequencyValue.textContent = `${parseInt(blinkFrequencyMin.value)} - ${max}`;
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Image blink threshold handler
+      blinkThreshold.addEventListener('input', () => {
+        const threshold = parseInt(blinkThreshold.value);
+        blinkThresholdValue.textContent = threshold;
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Image blink intensity handler
+      blinkIntensity.addEventListener('input', () => {
+        const intensity = parseInt(blinkIntensity.value);
+        blinkIntensityValue.textContent = `${intensity}%`;
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Image blink duration handler
+      blinkDuration.addEventListener('input', () => {
+        const duration = parseInt(blinkDuration.value);
+        blinkDurationValue.textContent = `${duration}ms`;
         recorder.setVisualizerOptions(getCurrentOptions());
         saveSettings(getCurrentSettings());
         updatePreview();
