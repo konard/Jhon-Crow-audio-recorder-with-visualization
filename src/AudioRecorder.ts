@@ -571,6 +571,22 @@ export class AudioRecorder extends EventEmitter<AudioRecorderEvents> {
   }
 
   /**
+   * Get current frequency data (spectrum) for external use (e.g., presentation mode)
+   * Returns empty data if no audio source is active
+   */
+  getFrequencyData(): Uint8Array | null {
+    return this.analyzer.getFrequencyData();
+  }
+
+  /**
+   * Get current time domain data (waveform) for external use (e.g., presentation mode)
+   * Returns empty data if no audio source is active
+   */
+  getTimeDomainData(): Uint8Array | null {
+    return this.analyzer.getTimeDomainData();
+  }
+
+  /**
    * Get audio context
    */
   getAudioContext(): AudioContext {

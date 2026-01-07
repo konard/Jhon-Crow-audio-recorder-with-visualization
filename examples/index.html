@@ -1060,6 +1060,7 @@
       <div class="tabs">
         <button class="tab active" data-tab="microphone">Microphone Recording</button>
         <button class="tab" data-tab="convert">Audio to Video</button>
+        <button class="tab" data-tab="presentation" id="presentationTab">Presentation Mode</button>
       </div>
 
       <div id="microphone" class="tab-content active">
@@ -1106,6 +1107,60 @@
         <div class="progress-bar" style="display: none;" role="progressbar" aria-valuemin="0" aria-valuemax="100">
           <div class="progress-bar-fill" id="progressFill"></div>
         </div>
+      </div>
+
+      <div id="presentation" class="tab-content">
+        <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md); font-size: 14px;">
+          Presentation mode shows visualization in a separate transparent overlay window - perfect for streaming or presenting.
+          <span id="presentationElectronOnly" style="color: var(--color-warning);">(Requires Electron app)</span>
+        </p>
+        <div class="controls" style="margin-bottom: var(--spacing-lg);">
+          <button id="togglePresentationBtn" class="btn-primary" data-tooltip="Toggle presentation mode on/off" aria-label="Toggle presentation mode">
+            <span id="togglePresentationBtnText">Start Presentation</span>
+          </button>
+        </div>
+        <div class="option-group">
+          <label>
+            Window Mode
+            <select id="presentationWindowMode" aria-label="Select presentation window mode">
+              <option value="normal">Normal</option>
+              <option value="alwaysOnBottom">Always on Bottom</option>
+              <option value="alwaysOnTop" selected>Always on Top</option>
+            </select>
+          </label>
+          <label>
+            Window Type
+            <select id="presentationWindowType" aria-label="Select presentation window type">
+              <option value="frameless" selected>Frameless (Custom Size)</option>
+              <option value="fullscreen">Fullscreen</option>
+            </select>
+          </label>
+        </div>
+        <div class="option-group" id="presentationSizeControls">
+          <label>
+            Window Width (px)
+            <input type="number" id="presentationWidth" min="200" max="3840" value="800" aria-label="Presentation window width">
+          </label>
+          <label>
+            Window Height (px)
+            <input type="number" id="presentationHeight" min="200" max="2160" value="600" aria-label="Presentation window height">
+          </label>
+        </div>
+        <div class="option-group">
+          <label>
+            Background Opacity
+            <input type="range" id="presentationBgOpacity" min="0" max="1" step="0.01" value="0" aria-label="Presentation background opacity">
+            <span id="presentationBgOpacityValue">0% (Transparent)</span>
+          </label>
+          <label style="flex-direction: row; align-items: center;">
+            <input type="checkbox" id="presentationClickThrough" checked aria-label="Enable click-through"> Click-Through (Mouse passes through window)
+          </label>
+        </div>
+        <p style="color: var(--color-text-muted); margin-top: var(--spacing-md); font-size: 12px;">
+          <strong>Keyboard Shortcuts:</strong><br>
+          Alt+Q - Close presentation window<br>
+          Alt+F4 - Blocked (won't close presentation)
+        </p>
       </div>
     </div>
 
@@ -1553,6 +1608,20 @@
       const blinkDuration = document.getElementById('blinkDuration');
       const blinkDurationValue = document.getElementById('blinkDurationValue');
 
+      // Presentation mode elements
+      const presentationTab = document.getElementById('presentationTab');
+      const togglePresentationBtn = document.getElementById('togglePresentationBtn');
+      const togglePresentationBtnText = document.getElementById('togglePresentationBtnText');
+      const presentationWindowMode = document.getElementById('presentationWindowMode');
+      const presentationWindowType = document.getElementById('presentationWindowType');
+      const presentationSizeControls = document.getElementById('presentationSizeControls');
+      const presentationWidth = document.getElementById('presentationWidth');
+      const presentationHeight = document.getElementById('presentationHeight');
+      const presentationBgOpacity = document.getElementById('presentationBgOpacity');
+      const presentationBgOpacityValue = document.getElementById('presentationBgOpacityValue');
+      const presentationClickThrough = document.getElementById('presentationClickThrough');
+      const presentationElectronOnly = document.getElementById('presentationElectronOnly');
+
       // Settings persistence
       const SETTINGS_KEY = 'audio-recorder-settings';
 
@@ -1595,6 +1664,13 @@
         imageBlinkThreshold: 200,
         imageBlinkIntensity: 80,
         imageBlinkDuration: 150,
+        // Presentation mode settings
+        presentationWindowMode: 'alwaysOnTop',
+        presentationWindowType: 'frameless',
+        presentationWidth: 800,
+        presentationHeight: 600,
+        presentationBgOpacity: 0,
+        presentationClickThrough: true,
       };
 
       // Load settings from localStorage
@@ -1663,6 +1739,13 @@
           imageBlinkThreshold: parseInt(blinkThreshold.value),
           imageBlinkIntensity: parseInt(blinkIntensity.value),
           imageBlinkDuration: parseInt(blinkDuration.value),
+          // Presentation mode settings
+          presentationWindowMode: presentationWindowMode.value,
+          presentationWindowType: presentationWindowType.value,
+          presentationWidth: parseInt(presentationWidth.value),
+          presentationHeight: parseInt(presentationHeight.value),
+          presentationBgOpacity: parseFloat(presentationBgOpacity.value),
+          presentationClickThrough: presentationClickThrough.checked,
         };
       }
 
@@ -1751,6 +1834,20 @@
         if (settings.centerImage) {
           currentCenterImageUrl = settings.centerImage;
         }
+
+        // Apply presentation mode settings
+        presentationWindowMode.value = settings.presentationWindowMode || 'alwaysOnTop';
+        presentationWindowType.value = settings.presentationWindowType || 'frameless';
+        presentationWidth.value = settings.presentationWidth || 800;
+        presentationHeight.value = settings.presentationHeight || 600;
+        presentationBgOpacity.value = settings.presentationBgOpacity || 0;
+        const bgOpacityPercent = Math.round((settings.presentationBgOpacity || 0) * 100);
+        presentationBgOpacityValue.textContent = bgOpacityPercent === 0
+          ? '0% (Transparent)'
+          : bgOpacityPercent === 100 ? '100% (Solid)' : bgOpacityPercent + '%';
+        presentationClickThrough.checked = settings.presentationClickThrough !== false;
+        // Show/hide size controls based on window type
+        presentationSizeControls.style.display = settings.presentationWindowType === 'fullscreen' ? 'none' : 'grid';
       }
 
       // Load and apply saved settings on startup
@@ -3156,6 +3253,231 @@ Drag on canvas - Move visualization position`);
       console.log('Available visualizers:', AudioRecorder.getAvailableVisualizers());
       console.log('Supported formats:', AudioRecorder.getSupportedFormats());
       console.log('Keyboard shortcuts: Press ? or / for help');
+
+      // ==================== PRESENTATION MODE ====================
+
+      // Check if running in Electron
+      const isElectron = window.electronAPI && window.electronAPI.isElectron;
+
+      // Track presentation mode state
+      let isPresentationActive = false;
+      let presentationFrameInterval = null;
+
+      // Hide presentation tab warning if in Electron
+      if (isElectron && presentationElectronOnly) {
+        presentationElectronOnly.style.display = 'none';
+      }
+
+      // Disable presentation controls if not in Electron
+      if (!isElectron) {
+        togglePresentationBtn.disabled = true;
+        togglePresentationBtn.title = 'Presentation mode requires Electron app';
+        presentationWindowMode.disabled = true;
+        presentationWindowType.disabled = true;
+        presentationWidth.disabled = true;
+        presentationHeight.disabled = true;
+        presentationBgOpacity.disabled = true;
+        presentationClickThrough.disabled = true;
+      }
+
+      // Get current presentation settings
+      function getPresentationSettings() {
+        return {
+          windowMode: presentationWindowMode.value,
+          windowType: presentationWindowType.value,
+          width: parseInt(presentationWidth.value),
+          height: parseInt(presentationHeight.value),
+          backgroundOpacity: parseFloat(presentationBgOpacity.value),
+          clickThrough: presentationClickThrough.checked,
+        };
+      }
+
+      // Start sending visualization frames to presentation window
+      function startPresentationFrames() {
+        if (presentationFrameInterval) {
+          clearInterval(presentationFrameInterval);
+        }
+
+        // Send frames at ~30fps - prioritize presentation window
+        // Use shorter interval for smoother animation
+        presentationFrameInterval = setInterval(() => {
+          if (!isPresentationActive || !window.electronAPI) return;
+
+          // Send the rendered canvas image directly to the presentation window
+          // This includes background image, layer effects, center image, and visualization
+          // Using lower quality JPEG for better performance over IPC
+          const imageData = canvas.toDataURL('image/jpeg', 0.85);
+
+          // Send canvas image to presentation window
+          window.electronAPI.presentationSendFrame({
+            imageData: imageData,
+            width: canvas.width,
+            height: canvas.height,
+          });
+        }, 33); // ~30fps
+      }
+
+      // Stop sending visualization frames
+      function stopPresentationFrames() {
+        if (presentationFrameInterval) {
+          clearInterval(presentationFrameInterval);
+          presentationFrameInterval = null;
+        }
+      }
+
+      // Update presentation button UI
+      function updatePresentationButton(active) {
+        if (active) {
+          togglePresentationBtn.classList.remove('btn-primary');
+          togglePresentationBtn.classList.add('btn-danger');
+          togglePresentationBtnText.textContent = 'Stop Presentation';
+        } else {
+          togglePresentationBtn.classList.remove('btn-danger');
+          togglePresentationBtn.classList.add('btn-primary');
+          togglePresentationBtnText.textContent = 'Start Presentation';
+        }
+      }
+
+      // Toggle presentation mode
+      async function togglePresentation() {
+        if (!isElectron) return;
+
+        if (isPresentationActive) {
+          // Stop presentation
+          try {
+            await window.electronAPI.presentationStop();
+            isPresentationActive = false;
+            stopPresentationFrames();
+            updatePresentationButton(false);
+          } catch (error) {
+            console.error('Failed to stop presentation:', error);
+          }
+        } else {
+          // Start presentation
+          try {
+            const settings = getPresentationSettings();
+            const result = await window.electronAPI.presentationStart(settings);
+            if (result.success) {
+              isPresentationActive = true;
+              updatePresentationButton(true);
+
+              // Send initial visualizer settings
+              window.electronAPI.presentationSendVisualizerType(visualizerSelect.value);
+              window.electronAPI.presentationSendVisualizerOptions(getCurrentOptions());
+
+              // Start sending frames
+              startPresentationFrames();
+            }
+          } catch (error) {
+            console.error('Failed to start presentation:', error);
+          }
+        }
+      }
+
+      // Event: Toggle presentation button
+      togglePresentationBtn.addEventListener('click', togglePresentation);
+
+      // Event: Listen for presentation closed (from main process)
+      if (isElectron) {
+        window.electronAPI.onPresentationClosed(() => {
+          isPresentationActive = false;
+          stopPresentationFrames();
+          updatePresentationButton(false);
+        });
+      }
+
+      // Event: Window mode change
+      presentationWindowMode.addEventListener('change', async () => {
+        saveSettings(getCurrentSettings());
+        if (isPresentationActive && isElectron) {
+          await window.electronAPI.presentationUpdate({
+            windowMode: presentationWindowMode.value,
+          });
+        }
+      });
+
+      // Event: Window type change
+      presentationWindowType.addEventListener('change', async () => {
+        // Show/hide size controls
+        presentationSizeControls.style.display = presentationWindowType.value === 'fullscreen' ? 'none' : 'grid';
+        saveSettings(getCurrentSettings());
+        if (isPresentationActive && isElectron) {
+          const settings = getPresentationSettings();
+          await window.electronAPI.presentationUpdate(settings);
+        }
+      });
+
+      // Event: Window size change
+      presentationWidth.addEventListener('change', async () => {
+        saveSettings(getCurrentSettings());
+        if (isPresentationActive && isElectron) {
+          await window.electronAPI.presentationUpdate({
+            width: parseInt(presentationWidth.value),
+            height: parseInt(presentationHeight.value),
+          });
+        }
+      });
+
+      presentationHeight.addEventListener('change', async () => {
+        saveSettings(getCurrentSettings());
+        if (isPresentationActive && isElectron) {
+          await window.electronAPI.presentationUpdate({
+            width: parseInt(presentationWidth.value),
+            height: parseInt(presentationHeight.value),
+          });
+        }
+      });
+
+      // Event: Background opacity change
+      presentationBgOpacity.addEventListener('input', async () => {
+        const opacity = parseFloat(presentationBgOpacity.value);
+        const percent = Math.round(opacity * 100);
+        presentationBgOpacityValue.textContent = percent === 0
+          ? '0% (Transparent)'
+          : percent === 100 ? '100% (Solid)' : percent + '%';
+      });
+
+      presentationBgOpacity.addEventListener('change', async () => {
+        saveSettings(getCurrentSettings());
+        if (isPresentationActive && isElectron) {
+          await window.electronAPI.presentationUpdate({
+            backgroundOpacity: parseFloat(presentationBgOpacity.value),
+          });
+        }
+      });
+
+      // Event: Click-through toggle
+      presentationClickThrough.addEventListener('change', async () => {
+        saveSettings(getCurrentSettings());
+        if (isPresentationActive && isElectron) {
+          await window.electronAPI.presentationUpdate({
+            clickThrough: presentationClickThrough.checked,
+          });
+        }
+      });
+
+      // Forward visualizer changes to presentation window
+      const originalSetVisualizer = recorder.setVisualizer.bind(recorder);
+      recorder.setVisualizer = async function(type, options) {
+        const result = await originalSetVisualizer(type, options);
+        if (isPresentationActive && isElectron) {
+          window.electronAPI.presentationSendVisualizerType(type);
+          window.electronAPI.presentationSendVisualizerOptions(options || getCurrentOptions());
+        }
+        return result;
+      };
+
+      const originalSetVisualizerOptions = recorder.setVisualizerOptions.bind(recorder);
+      recorder.setVisualizerOptions = async function(options) {
+        const result = await originalSetVisualizerOptions(options);
+        if (isPresentationActive && isElectron) {
+          window.electronAPI.presentationSendVisualizerOptions(getCurrentOptions());
+        }
+        return result;
+      };
+
+      console.log('Presentation mode initialized. Electron:', isElectron);
+
     })();
   </script>
 </body>
