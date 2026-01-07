@@ -954,6 +954,13 @@
               <option value="2160p">4K 2160p (3840x2160)</option>
             </select>
           </label>
+          <label>
+            Video Format
+            <select id="videoFormat" aria-label="Select video format">
+              <option value="webm" selected>WebM (VP9/VP8)</option>
+              <option value="mp4">MP4 (H.264)</option>
+            </select>
+          </label>
         </div>
         <div class="controls">
           <button id="convertBtn" class="btn-info" disabled data-tooltip="Convert selected audio file to video with visualization" aria-label="Convert audio to video">
@@ -1046,6 +1053,31 @@
         </label>
         <label style="flex-direction: row; align-items: center;">
           <input type="checkbox" id="useCustomColors" aria-label="Use custom colors"> Use Custom Colors (Primary/Secondary)
+        </label>
+      </div>
+      <div class="option-group" id="barShapeControls" style="display: none;">
+        <label>
+          Bar Shape
+          <select id="barShape" aria-label="Select bar shape">
+            <option value="rectangle">Rectangle</option>
+            <option value="rounded" selected>Rounded (Default)</option>
+            <option value="circle">Circle / Bubble</option>
+            <option value="triangle">Triangle</option>
+            <option value="diamond">Diamond</option>
+          </select>
+        </label>
+      </div>
+      <div class="option-group" id="particleShapeControls" style="display: none;">
+        <label>
+          Particle Shape
+          <select id="particleShape" aria-label="Select particle shape">
+            <option value="circle" selected>Circle (Default)</option>
+            <option value="square">Square</option>
+            <option value="triangle">Triangle</option>
+            <option value="diamond">Diamond</option>
+            <option value="star">Star</option>
+            <option value="heart">Heart</option>
+          </select>
         </label>
       </div>
       <div class="option-group" id="centerImageControls" style="display: none;">
@@ -1227,6 +1259,11 @@
       const centerImageOffsetXValue = document.getElementById('centerImageOffsetXValue');
       const centerImageOffsetY = document.getElementById('centerImageOffsetY');
       const centerImageOffsetYValue = document.getElementById('centerImageOffsetYValue');
+      const barShapeControls = document.getElementById('barShapeControls');
+      const barShapeSelect = document.getElementById('barShape');
+      const particleShapeControls = document.getElementById('particleShapeControls');
+      const particleShapeSelect = document.getElementById('particleShape');
+      const videoFormat = document.getElementById('videoFormat');
 
       // Settings persistence
       const SETTINGS_KEY = 'audio-recorder-settings';
@@ -1249,6 +1286,7 @@
         backgroundWidth: 800,
         backgroundHeight: 400,
         videoQuality: '1080p',
+        videoFormat: 'webm',
         layerEffect: 'none',
         layerEffectIntensity: 50,
         useCustomColors: false,
@@ -1256,6 +1294,8 @@
         centerImageZoom: 100,
         centerImageOffsetX: 0,
         centerImageOffsetY: 0,
+        barShape: 'rounded',
+        particleShape: 'circle',
       };
 
       // Load settings from localStorage
@@ -1303,6 +1343,7 @@
           backgroundWidth: parseInt(bgCustomWidth.value),
           backgroundHeight: parseInt(bgCustomHeight.value),
           videoQuality: videoQuality.value,
+          videoFormat: videoFormat.value,
           layerEffect: layerEffect.value,
           layerEffectIntensity: parseInt(layerEffectIntensity.value),
           useCustomColors: useCustomColors.checked,
@@ -1310,6 +1351,8 @@
           centerImageZoom: parseInt(centerImageZoom.value),
           centerImageOffsetX: parseInt(centerImageOffsetX.value),
           centerImageOffsetY: parseInt(centerImageOffsetY.value),
+          barShape: barShapeSelect.value,
+          particleShape: particleShapeSelect.value,
         };
       }
 
@@ -1370,6 +1413,19 @@
         if (settings.centerImage) {
           currentCenterImageUrl = settings.centerImage;
         }
+
+        // Video format setting
+        videoFormat.value = settings.videoFormat || 'webm';
+
+        // Bar and particle shape settings
+        barShapeSelect.value = settings.barShape || 'rounded';
+        particleShapeSelect.value = settings.particleShape || 'circle';
+
+        // Show/hide shape controls based on visualizer type
+        const isBars = settings.visualizer === 'bars';
+        const isParticles = settings.visualizer === 'particles';
+        barShapeControls.style.display = isBars ? 'grid' : 'none';
+        particleShapeControls.style.display = isParticles ? 'grid' : 'none';
       }
 
       // Load and apply saved settings on startup
@@ -1426,6 +1482,16 @@
       if (savedSettings.useCustomColors) {
         visualizerOptions.custom.colorScheme = 'custom';
         visualizerOptions.custom.fillStyle = 'custom';
+      }
+
+      // Add bar shape if saved
+      if (savedSettings.barShape) {
+        visualizerOptions.custom.barShape = savedSettings.barShape;
+      }
+
+      // Add particle shape if saved
+      if (savedSettings.particleShape) {
+        visualizerOptions.custom.particleShape = savedSettings.particleShape;
       }
 
       const recorder = new AudioRecorder({
@@ -1524,6 +1590,8 @@
           visualizationScale.disabled = true;
           layerEffect.disabled = true;
           layerEffectIntensity.disabled = true;
+          barShapeSelect.disabled = true;
+          particleShapeSelect.disabled = true;
         } else {
           visualizerSelect.disabled = false;
           primaryColor.disabled = false;
@@ -1548,6 +1616,8 @@
           visualizationScale.disabled = false;
           layerEffect.disabled = false;
           layerEffectIntensity.disabled = false;
+          barShapeSelect.disabled = false;
+          particleShapeSelect.disabled = false;
         }
       }
 
@@ -1711,6 +1781,11 @@
         centerImageControls.style.display = isCircular ? 'grid' : 'none';
         // Show center image position controls only if circular and has center image
         centerImagePositionControls.style.display = (isCircular && currentCenterImageUrl) ? 'grid' : 'none';
+        // Show/hide shape controls based on visualizer type
+        const isBars = visualizerSelect.value === 'bars';
+        const isParticles = visualizerSelect.value === 'particles';
+        barShapeControls.style.display = isBars ? 'grid' : 'none';
+        particleShapeControls.style.display = isParticles ? 'grid' : 'none';
         updatePreview();
       });
 
@@ -1764,6 +1839,10 @@
           options.custom.centerImageOffsetX = parseInt(centerImageOffsetX.value);
           options.custom.centerImageOffsetY = parseInt(centerImageOffsetY.value);
         }
+        // Include bar shape (for bars visualizer)
+        options.custom.barShape = barShapeSelect.value;
+        // Include particle shape (for particles visualizer)
+        options.custom.particleShape = particleShapeSelect.value;
         return options;
       }
 
@@ -1939,6 +2018,25 @@
         recorder.setVisualizerOptions(getCurrentOptions());
         saveSettings(getCurrentSettings());
         updatePreview();
+      });
+
+      // Bar shape change handler
+      barShapeSelect.addEventListener('change', () => {
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Particle shape change handler
+      particleShapeSelect.addEventListener('change', () => {
+        recorder.setVisualizerOptions(getCurrentOptions());
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Video format change handler - persist setting
+      videoFormat.addEventListener('change', () => {
+        saveSettings(getCurrentSettings());
       });
 
       // Image Cropper functionality
@@ -2266,6 +2364,7 @@
             fps: 30,
             videoWidth: quality.width,
             videoHeight: quality.height,
+            format: videoFormat.value,
             onProgress: updateProgress,
           });
 
