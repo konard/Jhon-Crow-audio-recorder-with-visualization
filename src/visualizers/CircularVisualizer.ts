@@ -109,7 +109,6 @@ export class CircularVisualizer extends BaseVisualizer {
 
     // Calculate bar heights from frequency data
     const step = Math.floor(frequencyData.length / barCount);
-    const smoothing = this.options.smoothing!;
     const angleStep = (Math.PI * 2) / barCount;
 
     ctx.save();
@@ -124,10 +123,9 @@ export class CircularVisualizer extends BaseVisualizer {
       }
       const average = sum / step;
 
-      // Normalize and apply smoothing
+      // Normalize and apply ADSR envelope smoothing
       const targetHeight = (average / 255) * maxBarHeight;
-      const smoothedHeight =
-        this.previousHeights[i] * smoothing + targetHeight * (1 - smoothing);
+      const smoothedHeight = this.applyADSRSmoothing(this.previousHeights[i], targetHeight);
       this.previousHeights[i] = smoothedHeight;
 
       const angle = i * angleStep - Math.PI / 2;

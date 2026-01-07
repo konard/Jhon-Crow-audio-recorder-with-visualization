@@ -91,8 +91,16 @@ export interface VisualizerOptions {
   mirror?: boolean;
   /** Whether to mirror the visualization horizontally (reflect around center) */
   mirrorHorizontal?: boolean;
-  /** Smoothing factor for animations (0-1) */
+  /** Smoothing factor for animations (0-1) - deprecated, use ADSR envelope instead */
   smoothing?: number;
+  /** ADSR Attack time (0-100) - how quickly visualization responds to audio onset. 0 = instant, 100 = slow rise */
+  adsrAttack?: number;
+  /** ADSR Decay time (0-100) - how quickly visualization falls from peak to sustain level. 0 = instant, 100 = slow decay */
+  adsrDecay?: number;
+  /** ADSR Sustain level (0-100) - minimum level maintained during audio input. 0 = no sustain, 100 = full sustain */
+  adsrSustain?: number;
+  /** ADSR Release time (0-100) - how quickly visualization fades when audio stops. 0 = instant, 100 = slow release */
+  adsrRelease?: number;
   /** Background image or GIF */
   backgroundImage?: HTMLImageElement | string;
   /** Background image sizing mode (cover, contain, stretch, tile, center, custom) */
