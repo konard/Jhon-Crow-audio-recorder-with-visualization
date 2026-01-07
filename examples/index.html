@@ -1011,6 +1011,10 @@
           Bar Count: <span id="barCountValue">64</span>
           <input type="range" id="barCount" min="16" max="256" value="64" aria-label="Adjust bar count">
         </label>
+        <label data-tooltip="Number of particles for Particles visualizer (50-500)">
+          Particle Count: <span id="particleCountValue">200</span>
+          <input type="range" id="particleCount" min="50" max="500" value="200" aria-label="Adjust particle count">
+        </label>
         <label>
           Background Image (optional)
           <input type="file" id="bgImage" accept="image/*" aria-label="Upload background image">
@@ -1193,6 +1197,7 @@
       const swapColorsBtn = document.getElementById('swapColorsBtn');
       const bgColor = document.getElementById('bgColor');
       const barCount = document.getElementById('barCount');
+      const particleCount = document.getElementById('particleCount');
       const bgImage = document.getElementById('bgImage');
       const mirror = document.getElementById('mirror');
       const mirrorHorizontal = document.getElementById('mirrorHorizontal');
@@ -1238,6 +1243,7 @@
         secondaryColor: '#0088ff',
         backgroundColor: '#000000',
         barCount: 64,
+        particleCount: 200,
         mirror: false,
         mirrorHorizontal: false,
         visualizationAlpha: 1,
@@ -1292,6 +1298,7 @@
           secondaryColor: secondaryColor.value,
           backgroundColor: bgColor.value,
           barCount: parseInt(barCount.value),
+          particleCount: parseInt(particleCount.value),
           mirror: mirror.checked,
           mirrorHorizontal: mirrorHorizontal.checked,
           visualizationAlpha: parseFloat(visualizationAlpha.value),
@@ -1321,6 +1328,8 @@
         bgColor.value = settings.backgroundColor;
         barCount.value = settings.barCount;
         document.getElementById('barCountValue').textContent = settings.barCount;
+        particleCount.value = settings.particleCount || 200;
+        document.getElementById('particleCountValue').textContent = settings.particleCount || 200;
         mirror.checked = settings.mirror;
         mirrorHorizontal.checked = settings.mirrorHorizontal || false;
         visualizationAlpha.value = settings.visualizationAlpha;
@@ -1406,6 +1415,7 @@
         custom: {
           useColorGradient: savedSettings.useCustomColors || false,
           useCustomColors: savedSettings.useCustomColors || false,
+          maxParticles: savedSettings.particleCount || 200,
         },
       };
 
@@ -1722,6 +1732,7 @@
           useColorGradient: isCustomColors,
           // For particles visualizer
           useCustomColors: isCustomColors,
+          maxParticles: parseInt(particleCount.value),
         };
 
         // Only set colorScheme when custom colors is enabled (for spectrogram)
@@ -1833,6 +1844,16 @@
         const newBarCount = parseInt(barCount.value);
         barCountValue.textContent = newBarCount;
         recorder.setVisualizerOptions({ barCount: newBarCount });
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Particle Count change handler
+      const particleCountValue = document.getElementById('particleCountValue');
+      particleCount.addEventListener('input', () => {
+        const newParticleCount = parseInt(particleCount.value);
+        particleCountValue.textContent = newParticleCount;
+        recorder.setVisualizerOptions({ custom: { maxParticles: newParticleCount } });
         saveSettings(getCurrentSettings());
         updatePreview();
       });
