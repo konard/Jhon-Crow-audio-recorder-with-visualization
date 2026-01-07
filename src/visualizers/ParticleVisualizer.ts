@@ -61,30 +61,35 @@ export class ParticleVisualizer extends BaseVisualizer {
     this.applyLayerEffect(ctx, data);
 
     // Get frequency data slice based on frequencyWidth setting
-    const frequencyDataSlice = this.getFrequencyDataSlice(frequencyData);
+    // Ensure we have at least 10 bins for bass/mid/high split
+    const frequencyDataSlice = this.getFrequencyDataSlice(frequencyData, 10);
 
     // Calculate audio intensity
     let bassIntensity = 0;
     let midIntensity = 0;
     let highIntensity = 0;
 
-    const bassEnd = Math.floor(frequencyDataSlice.length * 0.1);
-    const midEnd = Math.floor(frequencyDataSlice.length * 0.5);
+    // Ensure all band sizes are at least 1 to prevent division by zero
+    const bassEnd = Math.max(1, Math.floor(frequencyDataSlice.length * 0.1));
+    const midEnd = Math.max(bassEnd + 1, Math.floor(frequencyDataSlice.length * 0.5));
+    const bassCount = bassEnd;
+    const midCount = Math.max(1, midEnd - bassEnd);
+    const highCount = Math.max(1, frequencyDataSlice.length - midEnd);
 
     for (let i = 0; i < bassEnd; i++) {
       bassIntensity += frequencyDataSlice[i];
     }
-    bassIntensity /= bassEnd * 255;
+    bassIntensity /= bassCount * 255;
 
     for (let i = bassEnd; i < midEnd; i++) {
       midIntensity += frequencyDataSlice[i];
     }
-    midIntensity /= (midEnd - bassEnd) * 255;
+    midIntensity /= midCount * 255;
 
     for (let i = midEnd; i < frequencyDataSlice.length; i++) {
       highIntensity += frequencyDataSlice[i];
     }
-    highIntensity /= (frequencyDataSlice.length - midEnd) * 255;
+    highIntensity /= highCount * 255;
 
     const overallIntensity = (bassIntensity + midIntensity + highIntensity) / 3;
 

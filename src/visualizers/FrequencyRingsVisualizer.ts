@@ -59,17 +59,16 @@ export class FrequencyRingsVisualizer extends BaseVisualizer {
     }
 
     // Get frequency data slice based on frequencyWidth setting
-    const frequencyDataSlice = this.getFrequencyDataSlice(frequencyData);
+    // Ensure we have at least ringCount bins to prevent division by zero
+    const frequencyDataSlice = this.getFrequencyDataSlice(frequencyData, ringCount);
 
-    const bandSize = Math.floor(frequencyDataSlice.length / ringCount);
+    // Use Math.max(1, ...) to ensure bandSize is never 0
+    const bandSize = Math.max(1, Math.floor(frequencyDataSlice.length / ringCount));
 
     // Calculate ring values with ADSR envelope smoothing
     for (let i = 0; i < ringCount; i++) {
-      let sum = 0;
-      for (let j = 0; j < bandSize; j++) {
-        sum += frequencyDataSlice[i * bandSize + j];
-      }
-      const average = sum / bandSize;
+      // Use safe calculation to average frequency values
+      const average = this.calculateBandAverage(frequencyDataSlice, i * bandSize, bandSize);
       const targetValue = average / 255;
       this.previousValues[i] = this.applyADSRSmoothing(this.previousValues[i], targetValue);
     }

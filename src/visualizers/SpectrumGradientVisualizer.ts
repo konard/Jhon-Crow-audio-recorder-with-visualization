@@ -64,22 +64,20 @@ export class SpectrumGradientVisualizer extends BaseVisualizer {
     }
 
     // Get frequency data slice based on frequencyWidth setting
-    const frequencyDataSlice = this.getFrequencyDataSlice(frequencyData);
+    // Ensure we have at least barCount bins to prevent division by zero
+    const frequencyDataSlice = this.getFrequencyDataSlice(frequencyData, barCount);
 
     // Calculate bar heights from frequency data
-    const step = Math.floor(frequencyDataSlice.length / barCount);
+    // Use Math.max(1, ...) to ensure step is never 0
+    const step = Math.max(1, Math.floor(frequencyDataSlice.length / barCount));
     const peakFallSpeed = this.options.custom?.peakFallSpeed as number;
     const showPeaks = this.options.custom?.peakDots as boolean;
     const fillStyle = this.options.custom?.fillStyle as string;
     const gradientColors = this.options.custom?.gradientColors as string[];
 
     for (let i = 0; i < barCount; i++) {
-      // Average frequency values for this bar
-      let sum = 0;
-      for (let j = 0; j < step; j++) {
-        sum += frequencyDataSlice[i * step + j];
-      }
-      const average = sum / step;
+      // Average frequency values for this bar using safe calculation
+      const average = this.calculateBandAverage(frequencyDataSlice, i * step, step);
 
       // Normalize to 0-1 and apply ADSR envelope smoothing
       const targetHeight = (average / 255) * height;

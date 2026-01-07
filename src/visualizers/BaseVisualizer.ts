@@ -149,9 +149,10 @@ export abstract class BaseVisualizer implements Visualizer {
   /**
    * Get a slice of frequency data based on frequencyWidth setting
    * @param frequencyData - Full frequency data array
+   * @param minBins - Minimum number of bins to return (default: barCount or 1)
    * @returns Sliced frequency data array based on frequencyWidth percentage
    */
-  protected getFrequencyDataSlice(frequencyData: Uint8Array): Uint8Array {
+  protected getFrequencyDataSlice(frequencyData: Uint8Array, minBins?: number): Uint8Array {
     const frequencyWidth = this.options.frequencyWidth ?? 100;
 
     // If displaying full spectrum, return as-is
@@ -160,10 +161,39 @@ export abstract class BaseVisualizer implements Visualizer {
     }
 
     // Calculate how many bins to use (from the start, as lower frequencies are more important)
-    const binCount = Math.max(1, Math.floor((frequencyData.length * frequencyWidth) / 100));
+    // Ensure we have at least minBins bins to prevent division by zero issues
+    const effectiveMinBins = minBins ?? this.options.barCount ?? 1;
+    const calculatedBinCount = Math.floor((frequencyData.length * frequencyWidth) / 100);
+    const binCount = Math.max(effectiveMinBins, calculatedBinCount);
 
-    // Return a slice of the frequency data
-    return frequencyData.slice(0, binCount);
+    // Return a slice of the frequency data (capped at actual length)
+    return frequencyData.slice(0, Math.min(binCount, frequencyData.length));
+  }
+
+  /**
+   * Calculate the average value for a frequency band with safe division
+   * @param frequencyData - Frequency data array
+   * @param startIndex - Start index in the array
+   * @param count - Number of bins to average (will be clamped to valid range)
+   * @returns Average value (0-255) or 0 if no valid data
+   */
+  protected calculateBandAverage(frequencyData: Uint8Array, startIndex: number, count: number): number {
+    if (count <= 0 || startIndex >= frequencyData.length) {
+      return 0;
+    }
+
+    // Clamp count to available data
+    const effectiveCount = Math.min(count, frequencyData.length - startIndex);
+    if (effectiveCount <= 0) {
+      return 0;
+    }
+
+    let sum = 0;
+    for (let i = 0; i < effectiveCount; i++) {
+      sum += frequencyData[startIndex + i];
+    }
+
+    return sum / effectiveCount;
   }
 
   /**
