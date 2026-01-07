@@ -70,10 +70,10 @@ export class VUMeterVisualizer extends BaseVisualizer {
     let rightSum = 0;
 
     for (let i = 0; i < midpoint; i++) {
-      leftSum += frequencyDataSlice[i];
+      leftSum += this.applySensitivity(frequencyDataSlice[i]);
     }
     for (let i = midpoint; i < frequencyDataSlice.length; i++) {
-      rightSum += frequencyDataSlice[i];
+      rightSum += this.applySensitivity(frequencyDataSlice[i]);
     }
 
     const targetLeftLevel = leftSum / (midpoint * 255);

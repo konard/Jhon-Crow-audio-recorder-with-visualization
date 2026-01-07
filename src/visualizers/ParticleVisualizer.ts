@@ -94,9 +94,11 @@ export class ParticleVisualizer extends BaseVisualizer {
     const overallIntensity = (bassIntensity + midIntensity + highIntensity) / 3;
 
     // Calculate waveform deviation
+    const sensitivity = this.options.sensitivity ?? 1.0;
     let waveformDeviation = 0;
     for (let i = 0; i < timeDomainData.length; i++) {
-      waveformDeviation += Math.abs(timeDomainData[i] - 128);
+      const deviation = Math.abs(timeDomainData[i] - 128);
+      waveformDeviation += Math.min(128, deviation * sensitivity);
     }
     waveformDeviation /= timeDomainData.length * 128;
 

@@ -63,9 +63,11 @@ export class GlowWaveformVisualizer extends BaseVisualizer {
       // Generate points
       for (let i = 0; i < timeDomainData.length; i++) {
         const v = timeDomainData[i] / 128.0 - 1.0;
+        const sensitivity = this.options.sensitivity ?? 1.0;
+        const sensitiveV = Math.max(-1, Math.min(1, v * sensitivity));
         const y = mirror
-          ? height / 2 - (v * height * amplitudeScale) / 2
-          : height / 2 + (v * height * amplitudeScale) / 2;
+          ? height / 2 - (sensitiveV * height * amplitudeScale) / 2
+          : height / 2 + (sensitiveV * height * amplitudeScale) / 2;
 
         points.push({ x, y });
         x += sliceWidth;

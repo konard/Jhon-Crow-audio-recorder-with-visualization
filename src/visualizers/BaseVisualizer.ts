@@ -36,6 +36,7 @@ export abstract class BaseVisualizer implements Visualizer {
       adsrDecay: 30,
       adsrSustain: 10,
       adsrRelease: 50,
+      sensitivity: 1.0,
       foregroundAlpha: 1,
       visualizationAlpha: 1,
       offsetX: 0,
@@ -206,6 +207,16 @@ export abstract class BaseVisualizer implements Visualizer {
     }
 
     return sum / effectiveCount;
+  }
+
+  /**
+   * Apply sensitivity multiplier to an audio data value
+   * @param value - The raw audio data value (typically 0-255)
+   * @returns The value multiplied by sensitivity and clamped to valid range (0-255)
+   */
+  protected applySensitivity(value: number): number {
+    const sensitivity = this.options.sensitivity ?? 1.0;
+    return Math.min(255, value * sensitivity);
   }
 
   /**

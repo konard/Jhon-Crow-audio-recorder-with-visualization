@@ -1204,6 +1204,10 @@
                 Frequency Width: <span id="frequencyWidthValue">100%</span>
                 <input type="range" id="frequencyWidth" min="10" max="100" value="100" aria-label="Adjust frequency width">
               </label>
+              <label data-tooltip="Controls how responsive the visualization is to audio (0.1x-5.0x). 1.0x = normal sensitivity, higher = more responsive, lower = less responsive.">
+                Sensitivity: <span id="sensitivityValue">1.0x</span>
+                <input type="range" id="sensitivity" min="0.1" max="5.0" step="0.1" value="1.0" aria-label="Adjust sensitivity">
+              </label>
             </div>
           </div>
 
@@ -1547,6 +1551,7 @@
       const bgColor = document.getElementById('bgColor');
       const barCount = document.getElementById('barCount');
       const frequencyWidth = document.getElementById('frequencyWidth');
+      const sensitivity = document.getElementById('sensitivity');
       // ADSR Envelope controls
       const adsrAccordion = document.getElementById('adsrAccordion');
       const adsrAccordionHeader = document.getElementById('adsrAccordionHeader');
@@ -1633,6 +1638,7 @@
         backgroundColor: '#000000',
         barCount: 64,
         frequencyWidth: 100,
+        sensitivity: 1.0,
         // ADSR envelope settings
         adsrAttack: 20,
         adsrDecay: 30,
@@ -1708,6 +1714,7 @@
           backgroundColor: bgColor.value,
           barCount: parseInt(barCount.value),
           frequencyWidth: parseInt(frequencyWidth.value),
+          sensitivity: parseFloat(sensitivity.value),
           // ADSR envelope settings
           adsrAttack: parseInt(adsrAttack.value),
           adsrDecay: parseInt(adsrDecay.value),
@@ -1759,6 +1766,8 @@
         document.getElementById('barCountValue').textContent = settings.barCount;
         frequencyWidth.value = settings.frequencyWidth || 100;
         document.getElementById('frequencyWidthValue').textContent = (settings.frequencyWidth || 100) + '%';
+        sensitivity.value = settings.sensitivity ?? 1.0;
+        document.getElementById('sensitivityValue').textContent = (settings.sensitivity ?? 1.0).toFixed(1) + 'x';
         // ADSR envelope settings
         adsrAttack.value = settings.adsrAttack ?? 20;
         adsrAttackValue.textContent = (settings.adsrAttack ?? 20) + '%';
@@ -2238,6 +2247,7 @@
           backgroundColor: bgColor.value,
           barCount: parseInt(barCount.value),
           frequencyWidth: parseInt(frequencyWidth.value),
+          sensitivity: parseFloat(sensitivity.value),
           // ADSR envelope settings
           adsrAttack: parseInt(adsrAttack.value),
           adsrDecay: parseInt(adsrDecay.value),
@@ -2364,6 +2374,16 @@
         const newFrequencyWidth = parseInt(frequencyWidth.value);
         frequencyWidthValue.textContent = newFrequencyWidth + '%';
         recorder.setVisualizerOptions({ frequencyWidth: newFrequencyWidth });
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Sensitivity change handler with demo visualization and value display
+      const sensitivityValue = document.getElementById('sensitivityValue');
+      sensitivity.addEventListener('input', () => {
+        const newSensitivity = parseFloat(sensitivity.value);
+        sensitivityValue.textContent = newSensitivity.toFixed(1) + 'x';
+        recorder.setVisualizerOptions({ sensitivity: newSensitivity });
         saveSettings(getCurrentSettings());
         updatePreview();
       });
