@@ -87,6 +87,8 @@ export interface VisualizerOptions {
   barCount?: number;
   /** Gap between bars as fraction of bar width (0-1) */
   barGap?: number;
+  /** Frequency width as percentage of spectrum to display (10-100), default: 100 */
+  frequencyWidth?: number;
   /** Whether to mirror the visualization vertically */
   mirror?: boolean;
   /** Whether to mirror the visualization horizontally (reflect around center) */

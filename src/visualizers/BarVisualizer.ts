@@ -52,15 +52,18 @@ export class BarVisualizer extends BaseVisualizer {
       this.previousHeights = new Array(barCount).fill(0);
     }
 
+    // Get frequency data slice based on frequencyWidth setting
+    const frequencyDataSlice = this.getFrequencyDataSlice(frequencyData);
+
     // Calculate bar heights from frequency data
-    const step = Math.floor(frequencyData.length / barCount);
+    const step = Math.floor(frequencyDataSlice.length / barCount);
     const smoothing = this.options.smoothing!;
 
     for (let i = 0; i < barCount; i++) {
       // Average frequency values for this bar
       let sum = 0;
       for (let j = 0; j < step; j++) {
-        sum += frequencyData[i * step + j];
+        sum += frequencyDataSlice[i * step + j];
       }
       const average = sum / step;
 

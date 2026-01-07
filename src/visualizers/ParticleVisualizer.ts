@@ -60,28 +60,31 @@ export class ParticleVisualizer extends BaseVisualizer {
     // Apply layer effects to background
     this.applyLayerEffect(ctx, data);
 
+    // Get frequency data slice based on frequencyWidth setting
+    const frequencyDataSlice = this.getFrequencyDataSlice(frequencyData);
+
     // Calculate audio intensity
     let bassIntensity = 0;
     let midIntensity = 0;
     let highIntensity = 0;
 
-    const bassEnd = Math.floor(frequencyData.length * 0.1);
-    const midEnd = Math.floor(frequencyData.length * 0.5);
+    const bassEnd = Math.floor(frequencyDataSlice.length * 0.1);
+    const midEnd = Math.floor(frequencyDataSlice.length * 0.5);
 
     for (let i = 0; i < bassEnd; i++) {
-      bassIntensity += frequencyData[i];
+      bassIntensity += frequencyDataSlice[i];
     }
     bassIntensity /= bassEnd * 255;
 
     for (let i = bassEnd; i < midEnd; i++) {
-      midIntensity += frequencyData[i];
+      midIntensity += frequencyDataSlice[i];
     }
     midIntensity /= (midEnd - bassEnd) * 255;
 
-    for (let i = midEnd; i < frequencyData.length; i++) {
-      highIntensity += frequencyData[i];
+    for (let i = midEnd; i < frequencyDataSlice.length; i++) {
+      highIntensity += frequencyDataSlice[i];
     }
-    highIntensity /= (frequencyData.length - midEnd) * 255;
+    highIntensity /= (frequencyDataSlice.length - midEnd) * 255;
 
     const overallIntensity = (bassIntensity + midIntensity + highIntensity) / 3;
 

@@ -59,13 +59,17 @@ export class FrequencyRingsVisualizer extends BaseVisualizer {
     }
 
     const smoothing = this.options.smoothing!;
-    const bandSize = Math.floor(frequencyData.length / ringCount);
+
+    // Get frequency data slice based on frequencyWidth setting
+    const frequencyDataSlice = this.getFrequencyDataSlice(frequencyData);
+
+    const bandSize = Math.floor(frequencyDataSlice.length / ringCount);
 
     // Calculate ring values
     for (let i = 0; i < ringCount; i++) {
       let sum = 0;
       for (let j = 0; j < bandSize; j++) {
-        sum += frequencyData[i * bandSize + j];
+        sum += frequencyDataSlice[i * bandSize + j];
       }
       const average = sum / bandSize;
       const targetValue = average / 255;

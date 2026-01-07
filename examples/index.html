@@ -1011,6 +1011,10 @@
           Bar Count: <span id="barCountValue">64</span>
           <input type="range" id="barCount" min="16" max="256" value="64" aria-label="Adjust bar count">
         </label>
+        <label data-tooltip="Portion of frequency spectrum to display (10%-100%)">
+          Frequency Width: <span id="frequencyWidthValue">100%</span>
+          <input type="range" id="frequencyWidth" min="10" max="100" value="100" aria-label="Adjust frequency width">
+        </label>
         <label>
           Background Image (optional)
           <input type="file" id="bgImage" accept="image/*" aria-label="Upload background image">
@@ -1193,6 +1197,7 @@
       const swapColorsBtn = document.getElementById('swapColorsBtn');
       const bgColor = document.getElementById('bgColor');
       const barCount = document.getElementById('barCount');
+      const frequencyWidth = document.getElementById('frequencyWidth');
       const bgImage = document.getElementById('bgImage');
       const mirror = document.getElementById('mirror');
       const mirrorHorizontal = document.getElementById('mirrorHorizontal');
@@ -1238,6 +1243,7 @@
         secondaryColor: '#0088ff',
         backgroundColor: '#000000',
         barCount: 64,
+        frequencyWidth: 100,
         mirror: false,
         mirrorHorizontal: false,
         visualizationAlpha: 1,
@@ -1292,6 +1298,7 @@
           secondaryColor: secondaryColor.value,
           backgroundColor: bgColor.value,
           barCount: parseInt(barCount.value),
+          frequencyWidth: parseInt(frequencyWidth.value),
           mirror: mirror.checked,
           mirrorHorizontal: mirrorHorizontal.checked,
           visualizationAlpha: parseFloat(visualizationAlpha.value),
@@ -1321,6 +1328,8 @@
         bgColor.value = settings.backgroundColor;
         barCount.value = settings.barCount;
         document.getElementById('barCountValue').textContent = settings.barCount;
+        frequencyWidth.value = settings.frequencyWidth || 100;
+        document.getElementById('frequencyWidthValue').textContent = (settings.frequencyWidth || 100) + '%';
         mirror.checked = settings.mirror;
         mirrorHorizontal.checked = settings.mirrorHorizontal || false;
         visualizationAlpha.value = settings.visualizationAlpha;
@@ -1392,6 +1401,7 @@
         secondaryColor: savedSettings.secondaryColor,
         backgroundColor: savedSettings.backgroundColor,
         barCount: savedSettings.barCount,
+        frequencyWidth: savedSettings.frequencyWidth || 100,
         mirror: savedSettings.mirror,
         mirrorHorizontal: savedSettings.mirrorHorizontal || false,
         visualizationAlpha: savedSettings.visualizationAlpha,
@@ -1507,6 +1517,7 @@
           swapColorsBtn.disabled = true;
           bgColor.disabled = true;
           barCount.disabled = true;
+          frequencyWidth.disabled = true;
           bgImage.disabled = true;
           bgSizeMode.disabled = true;
           bgCustomWidth.disabled = true;
@@ -1531,6 +1542,7 @@
           swapColorsBtn.disabled = false;
           bgColor.disabled = false;
           barCount.disabled = false;
+          frequencyWidth.disabled = false;
           bgImage.disabled = false;
           bgSizeMode.disabled = false;
           bgCustomWidth.disabled = false;
@@ -1737,6 +1749,7 @@
           secondaryColor: secondaryColor.value,
           backgroundColor: bgColor.value,
           barCount: parseInt(barCount.value),
+          frequencyWidth: parseInt(frequencyWidth.value),
           mirror: mirror.checked,
           mirrorHorizontal: mirrorHorizontal.checked,
           visualizationAlpha: parseFloat(visualizationAlpha.value),
@@ -1833,6 +1846,16 @@
         const newBarCount = parseInt(barCount.value);
         barCountValue.textContent = newBarCount;
         recorder.setVisualizerOptions({ barCount: newBarCount });
+        saveSettings(getCurrentSettings());
+        updatePreview();
+      });
+
+      // Frequency Width change handler with demo visualization and value display
+      const frequencyWidthValue = document.getElementById('frequencyWidthValue');
+      frequencyWidth.addEventListener('input', () => {
+        const newFrequencyWidth = parseInt(frequencyWidth.value);
+        frequencyWidthValue.textContent = newFrequencyWidth + '%';
+        recorder.setVisualizerOptions({ frequencyWidth: newFrequencyWidth });
         saveSettings(getCurrentSettings());
         updatePreview();
       });

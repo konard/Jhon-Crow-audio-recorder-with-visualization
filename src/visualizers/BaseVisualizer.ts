@@ -23,6 +23,7 @@ export abstract class BaseVisualizer implements Visualizer {
       lineWidth: 2,
       barCount: 64,
       barGap: 0.2,
+      frequencyWidth: 100,
       mirror: false,
       mirrorHorizontal: false,
       smoothing: 0.8,
@@ -139,6 +140,26 @@ export abstract class BaseVisualizer implements Visualizer {
    */
   protected isValidDimensions(width: number, height: number): boolean {
     return width > 0 && height > 0 && isFinite(width) && isFinite(height);
+  }
+
+  /**
+   * Get a slice of frequency data based on frequencyWidth setting
+   * @param frequencyData - Full frequency data array
+   * @returns Sliced frequency data array based on frequencyWidth percentage
+   */
+  protected getFrequencyDataSlice(frequencyData: Uint8Array): Uint8Array {
+    const frequencyWidth = this.options.frequencyWidth ?? 100;
+
+    // If displaying full spectrum, return as-is
+    if (frequencyWidth >= 100) {
+      return frequencyData;
+    }
+
+    // Calculate how many bins to use (from the start, as lower frequencies are more important)
+    const binCount = Math.max(1, Math.floor((frequencyData.length * frequencyWidth) / 100));
+
+    // Return a slice of the frequency data
+    return frequencyData.slice(0, binCount);
   }
 
   /**
