@@ -330,3 +330,18 @@ ipcMain.on('presentation-visualizer-type', (event, type) => {
     presentationWindow.webContents.send('presentation-visualizer-type', type);
   }
 });
+
+// Handle window movement for Alt+MMB dragging
+ipcMain.on('presentation-move-window', (event, { deltaX, deltaY }) => {
+  if (presentationWindow && !presentationWindow.isDestroyed()) {
+    const [currentX, currentY] = presentationWindow.getPosition();
+    presentationWindow.setPosition(currentX + deltaX, currentY + deltaY);
+  }
+});
+
+// Toggle click-through when Alt key state changes
+ipcMain.on('presentation-set-click-through', (event, clickThrough) => {
+  if (presentationWindow && !presentationWindow.isDestroyed()) {
+    presentationWindow.setIgnoreMouseEvents(clickThrough, { forward: true });
+  }
+});
