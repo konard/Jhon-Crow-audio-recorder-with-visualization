@@ -1140,6 +1140,12 @@
           </label>
         </div>
         <div class="controls">
+          <button id="previewBtn" class="btn-primary" disabled data-tooltip="Preview audio with live visualization (loop mode for adjusting settings)" aria-label="Preview audio with visualization">
+            <span>Preview</span>
+          </button>
+          <button id="stopPreviewBtn" class="btn-secondary" style="display: none;" data-tooltip="Stop preview playback" aria-label="Stop preview">
+            <span>Stop Preview</span>
+          </button>
           <button id="convertBtn" class="btn-info" disabled data-tooltip="Convert selected audio file to video with visualization" aria-label="Convert audio to video">
             <span>Convert to Video</span>
           </button>
@@ -1147,6 +1153,14 @@
             <span>Cancel Conversion</span>
           </button>
         </div>
+        <div class="option-group" style="margin-top: var(--spacing-md);">
+          <label style="flex-direction: row; align-items: center;" data-tooltip="When enabled, audio will loop continuously during preview so you can adjust visualization settings in real-time.">
+            <input type="checkbox" id="loopPreview" checked aria-label="Loop preview playback"> Loop Preview
+          </label>
+        </div>
+        <p style="font-size: 12px; color: var(--color-text-muted); margin-top: var(--spacing-sm);">
+          Use Preview to test visualization settings with your audio file. Changes to settings will be reflected in real-time.
+        </p>
         <div class="progress-bar" style="display: none;" role="progressbar" aria-valuemin="0" aria-valuemax="100">
           <div class="progress-bar-fill" id="progressFill"></div>
         </div>
@@ -1814,6 +1828,9 @@
       const audioFile = document.getElementById('audioFile');
       const convertBtn = document.getElementById('convertBtn');
       const cancelConvertBtn = document.getElementById('cancelConvertBtn');
+      const previewBtn = document.getElementById('previewBtn');
+      const stopPreviewBtn = document.getElementById('stopPreviewBtn');
+      const loopPreviewCheckbox = document.getElementById('loopPreview');
       const progressFill = document.getElementById('progressFill');
       const videoQuality = document.getElementById('videoQuality');
       const bgSizeMode = document.getElementById('bgSizeMode');
@@ -2361,6 +2378,8 @@
       // Track recording state for UI safety
       let isRecording = false;
       let isConverting = false;
+      let isPreviewing = false;
+      let previewAudioElement = null;
 
       // Update status
       function updateStatus(message, type = 'ready') {
@@ -2405,7 +2424,17 @@
 
         // Conversion controls
         if (!isConverting) {
-          convertBtn.disabled = !audioFile.files.length || isRecording;
+          convertBtn.disabled = !audioFile.files.length || isRecording || isPreviewing;
+        }
+
+        // Preview controls
+        previewBtn.disabled = !audioFile.files.length || isRecording || isConverting || isPreviewing;
+        if (isPreviewing) {
+          stopPreviewBtn.style.display = 'inline-flex';
+          previewBtn.style.display = 'none';
+        } else {
+          stopPreviewBtn.style.display = 'none';
+          previewBtn.style.display = 'inline-flex';
         }
 
         // Visualizer settings - disable during recording to prevent issues
@@ -3689,13 +3718,79 @@
 
       // Audio file for conversion
       audioFile.addEventListener('change', () => {
-        convertBtn.disabled = !audioFile.files.length || isRecording;
+        convertBtn.disabled = !audioFile.files.length || isRecording || isPreviewing;
+        previewBtn.disabled = !audioFile.files.length || isRecording || isConverting || isPreviewing;
+      });
+
+      // Stop preview function
+      function stopPreview() {
+        if (previewAudioElement) {
+          previewAudioElement.pause();
+          previewAudioElement.currentTime = 0;
+          previewAudioElement = null;
+        }
+        isPreviewing = false;
+        updateStatus('Ready - Select an audio file to preview or convert', 'ready');
+        updateButtonStates();
+      }
+
+      // Preview audio with live visualization
+      previewBtn.addEventListener('click', async () => {
+        const file = audioFile.files[0];
+        if (!file) return;
+
+        isPreviewing = true;
+        updateStatus('Previewing audio with visualization (adjust settings in real-time)...', 'recording');
+        updateButtonStates();
+
+        try {
+          // Stop microphone if active to avoid conflicts
+          if (recorder.sourceType === 'microphone') {
+            recorder.stopMicrophone();
+          }
+
+          // Connect the audio file to the recorder for live visualization
+          previewAudioElement = await recorder.connectAudioFile(file);
+
+          // Set loop mode based on checkbox
+          previewAudioElement.loop = loopPreviewCheckbox.checked;
+
+          // Start playback
+          await previewAudioElement.play();
+
+          // Listen for audio end (if not looping)
+          previewAudioElement.addEventListener('ended', () => {
+            if (!previewAudioElement.loop) {
+              stopPreview();
+            }
+          });
+        } catch (error) {
+          isPreviewing = false;
+          updateStatus('Error: ' + error.message, 'error');
+          updateButtonStates();
+          console.error(error);
+        }
+      });
+
+      // Stop preview button
+      stopPreviewBtn.addEventListener('click', stopPreview);
+
+      // Update loop setting when checkbox changes during preview
+      loopPreviewCheckbox.addEventListener('change', () => {
+        if (previewAudioElement) {
+          previewAudioElement.loop = loopPreviewCheckbox.checked;
+        }
       });
 
       // Convert audio to video
       convertBtn.addEventListener('click', async () => {
         const file = audioFile.files[0];
         if (!file) return;
+
+        // Stop preview if running
+        if (isPreviewing) {
+          stopPreview();
+        }
 
         isConverting = true;
         convertBtn.disabled = true;
