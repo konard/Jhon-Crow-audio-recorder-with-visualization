@@ -26,5 +26,15 @@ contextBridge.exposeInMainWorld('presentationAPI', {
     return () => ipcRenderer.removeListener('presentation-visualizer-type', callback);
   },
 
+  // Move window by delta (for dragging with Alt+MMB)
+  moveWindow: (deltaX, deltaY) => {
+    ipcRenderer.send('presentation-move-window', { deltaX, deltaY });
+  },
+
+  // Toggle click-through mode
+  setClickThrough: (clickThrough) => {
+    ipcRenderer.send('presentation-set-click-through', clickThrough);
+  },
+
   isPresentationWindow: true,
 });
