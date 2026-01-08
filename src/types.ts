@@ -70,6 +70,16 @@ export type BackgroundSizeMode = 'cover' | 'contain' | 'stretch' | 'tile' | 'cen
 export type LayerEffectType = 'none' | 'blur' | 'brightness' | 'contrast' | 'grayscale' | 'invert' | 'sepia' | 'saturate' | 'hue-rotate';
 
 /**
+ * Image blink effect styles
+ */
+export type ImageBlinkStyle = 'gradient-sweep' | 'negative-flash' | 'brightness-pulse' | 'color-flash';
+
+/**
+ * Image blink target layer
+ */
+export type ImageBlinkTarget = 'background' | 'foreground' | 'both';
+
+/**
  * Options for visualizer configuration
  */
 export interface VisualizerOptions {
@@ -87,12 +97,24 @@ export interface VisualizerOptions {
   barCount?: number;
   /** Gap between bars as fraction of bar width (0-1) */
   barGap?: number;
+  /** Frequency width as percentage of spectrum to display (10-100), default: 100 */
+  frequencyWidth?: number;
   /** Whether to mirror the visualization vertically */
   mirror?: boolean;
   /** Whether to mirror the visualization horizontally (reflect around center) */
   mirrorHorizontal?: boolean;
-  /** Smoothing factor for animations (0-1) */
+  /** Smoothing factor for animations (0-1) - deprecated, use ADSR envelope instead */
   smoothing?: number;
+  /** ADSR Attack time (0-100) - how quickly visualization responds to audio onset. 0 = instant, 100 = slow rise */
+  adsrAttack?: number;
+  /** ADSR Decay time (0-100) - how quickly visualization falls from peak to sustain level. 0 = instant, 100 = slow decay */
+  adsrDecay?: number;
+  /** ADSR Sustain level (0-100) - minimum level maintained during audio input. 0 = no sustain, 100 = full sustain */
+  adsrSustain?: number;
+  /** ADSR Release time (0-100) - how quickly visualization fades when audio stops. 0 = instant, 100 = slow release */
+  adsrRelease?: number;
+  /** Visualization sensitivity multiplier (0.1-5.0) - controls how responsive visualization is to audio. 1.0 = normal, >1.0 = more sensitive, <1.0 = less sensitive */
+  sensitivity?: number;
   /** Background image or GIF */
   backgroundImage?: HTMLImageElement | string;
   /** Background image sizing mode (cover, contain, stretch, tile, center, custom) */
@@ -117,6 +139,20 @@ export interface VisualizerOptions {
   layerEffect?: LayerEffectType;
   /** Layer effect intensity (0-100), default: 50 */
   layerEffectIntensity?: number;
+  /** Enable image blinking based on frequency and volume, default: false */
+  imageBlinkEnabled?: boolean;
+  /** Frequency range in Hz to monitor for blinking trigger, default: { min: 60, max: 250 } (bass range) */
+  imageBlinkFrequencyRange?: { min: number; max: number };
+  /** Volume threshold (0-255) that must be exceeded to trigger blink, default: 200 */
+  imageBlinkVolumeThreshold?: number;
+  /** Style of blinking effect, default: 'gradient-sweep' */
+  imageBlinkStyle?: ImageBlinkStyle;
+  /** Intensity of blink effect (0-100), default: 80 */
+  imageBlinkIntensity?: number;
+  /** Target layer for blink effect, default: 'background' */
+  imageBlinkTarget?: ImageBlinkTarget;
+  /** Duration of blink effect in milliseconds, default: 150 */
+  imageBlinkDuration?: number;
   /** Custom options for specific visualizers */
   custom?: Record<string, unknown>;
 }
