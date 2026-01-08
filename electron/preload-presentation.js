@@ -31,6 +31,11 @@ contextBridge.exposeInMainWorld('presentationAPI', {
     ipcRenderer.send('presentation-move-window', { deltaX, deltaY });
   },
 
+  // Report current window position (call when drag ends to persist position)
+  reportPosition: () => {
+    ipcRenderer.send('presentation-report-position');
+  },
+
   // Toggle click-through mode
   setClickThrough: (clickThrough) => {
     ipcRenderer.send('presentation-set-click-through', clickThrough);

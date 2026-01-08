@@ -283,6 +283,10 @@
       document.addEventListener('mouseup', (e) => {
         if (e.button === 1 && isDraggingWindow) {
           isDraggingWindow = false;
+          // Report final position to persist it
+          if (window.presentationAPI && window.presentationAPI.reportPosition) {
+            window.presentationAPI.reportPosition();
+          }
           e.preventDefault();
           e.stopPropagation();
         }
