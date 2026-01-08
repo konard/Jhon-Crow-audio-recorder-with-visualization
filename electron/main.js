@@ -14,6 +14,7 @@ let presentationSettings = {
   width: 800,
   height: 600,
   backgroundOpacity: 0, // 0 = fully transparent
+  visualizationOpacity: 1, // 1 = fully opaque
   clickThrough: true,
 };
 

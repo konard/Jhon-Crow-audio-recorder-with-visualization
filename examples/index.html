@@ -1159,6 +1159,13 @@
             <input type="range" id="presentationBgOpacity" min="0" max="1" step="0.01" value="0" aria-label="Presentation background opacity">
             <span id="presentationBgOpacityValue">0% (Transparent)</span>
           </label>
+          <label>
+            Visualization Opacity
+            <input type="range" id="presentationVisualizationOpacity" min="0" max="1" step="0.01" value="1" aria-label="Presentation visualization opacity">
+            <span id="presentationVisualizationOpacityValue">100%</span>
+          </label>
+        </div>
+        <div class="option-group">
           <label style="flex-direction: row; align-items: center;">
             <input type="checkbox" id="presentationClickThrough" checked aria-label="Enable click-through"> Click-Through (Mouse passes through window)
           </label>
@@ -1738,6 +1745,8 @@
       const presentationHeight = document.getElementById('presentationHeight');
       const presentationBgOpacity = document.getElementById('presentationBgOpacity');
       const presentationBgOpacityValue = document.getElementById('presentationBgOpacityValue');
+      const presentationVisualizationOpacity = document.getElementById('presentationVisualizationOpacity');
+      const presentationVisualizationOpacityValue = document.getElementById('presentationVisualizationOpacityValue');
       const presentationClickThrough = document.getElementById('presentationClickThrough');
       const presentationElectronOnly = document.getElementById('presentationElectronOnly');
 
@@ -1793,6 +1802,7 @@
         presentationWidth: 800,
         presentationHeight: 600,
         presentationBgOpacity: 0,
+        presentationVisualizationOpacity: 1,
         presentationClickThrough: true,
       };
 
@@ -1872,6 +1882,7 @@
           presentationWidth: parseInt(presentationWidth.value),
           presentationHeight: parseInt(presentationHeight.value),
           presentationBgOpacity: parseFloat(presentationBgOpacity.value),
+          presentationVisualizationOpacity: parseFloat(presentationVisualizationOpacity.value),
           presentationClickThrough: presentationClickThrough.checked,
         };
       }
@@ -1987,6 +1998,9 @@
         presentationBgOpacityValue.textContent = bgOpacityPercent === 0
           ? '0% (Transparent)'
           : bgOpacityPercent === 100 ? '100% (Solid)' : bgOpacityPercent + '%';
+        presentationVisualizationOpacity.value = settings.presentationVisualizationOpacity !== undefined ? settings.presentationVisualizationOpacity : 1;
+        const vizOpacityPercent = Math.round((settings.presentationVisualizationOpacity !== undefined ? settings.presentationVisualizationOpacity : 1) * 100);
+        presentationVisualizationOpacityValue.textContent = vizOpacityPercent + '%';
         presentationClickThrough.checked = settings.presentationClickThrough !== false;
         // Show/hide size controls based on window type
         presentationSizeControls.style.display = settings.presentationWindowType === 'fullscreen' ? 'none' : 'grid';
@@ -3473,6 +3487,7 @@ Drag on canvas - Move visualization position`);
         presentationWidth.disabled = true;
         presentationHeight.disabled = true;
         presentationBgOpacity.disabled = true;
+        presentationVisualizationOpacity.disabled = true;
         presentationClickThrough.disabled = true;
       }
 
@@ -3484,6 +3499,7 @@ Drag on canvas - Move visualization position`);
           width: parseInt(presentationWidth.value),
           height: parseInt(presentationHeight.value),
           backgroundOpacity: parseFloat(presentationBgOpacity.value),
+          visualizationOpacity: parseFloat(presentationVisualizationOpacity.value),
           clickThrough: presentationClickThrough.checked,
         };
       }
@@ -3638,6 +3654,22 @@ Drag on canvas - Move visualization position`);
         if (isPresentationActive && isElectron) {
           await window.electronAPI.presentationUpdate({
             backgroundOpacity: parseFloat(presentationBgOpacity.value),
+          });
+        }
+      });
+
+      // Event: Visualization opacity change
+      presentationVisualizationOpacity.addEventListener('input', async () => {
+        const opacity = parseFloat(presentationVisualizationOpacity.value);
+        const percent = Math.round(opacity * 100);
+        presentationVisualizationOpacityValue.textContent = percent + '%';
+      });
+
+      presentationVisualizationOpacity.addEventListener('change', async () => {
+        saveSettings(getCurrentSettings());
+        if (isPresentationActive && isElectron) {
+          await window.electronAPI.presentationUpdate({
+            visualizationOpacity: parseFloat(presentationVisualizationOpacity.value),
           });
         }
       });
