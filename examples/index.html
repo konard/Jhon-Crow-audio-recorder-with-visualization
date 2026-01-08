@@ -1942,6 +1942,8 @@
         presentationWindowType: 'frameless',
         presentationWidth: 800,
         presentationHeight: 600,
+        presentationX: null, // null = auto-center, otherwise use saved position
+        presentationY: null,
         presentationBgOpacity: 0,
         presentationVisualizationOpacity: 1,
         presentationClickThrough: true,
@@ -2099,6 +2101,8 @@
           presentationWindowType: presentationWindowType.value,
           presentationWidth: parseInt(presentationWidth.value),
           presentationHeight: parseInt(presentationHeight.value),
+          presentationX: currentPresentationX,
+          presentationY: currentPresentationY,
           presentationBgOpacity: parseFloat(presentationBgOpacity.value),
           presentationVisualizationOpacity: parseFloat(presentationVisualizationOpacity.value),
           presentationClickThrough: presentationClickThrough.checked,
@@ -4105,6 +4109,9 @@ Drag on canvas - Move visualization position`);
       // Track presentation mode state
       let isPresentationActive = false;
       let presentationFrameInterval = null;
+      // Track presentation window position (null = auto-center)
+      let currentPresentationX = savedSettings.presentationX;
+      let currentPresentationY = savedSettings.presentationY;
 
       // Hide presentation tab warning if in Electron
       if (isElectron && presentationElectronOnly) {
@@ -4131,6 +4138,8 @@ Drag on canvas - Move visualization position`);
           windowType: presentationWindowType.value,
           width: parseInt(presentationWidth.value),
           height: parseInt(presentationHeight.value),
+          x: currentPresentationX,
+          y: currentPresentationY,
           backgroundOpacity: parseFloat(presentationBgOpacity.value),
           visualizationOpacity: parseFloat(presentationVisualizationOpacity.value),
           clickThrough: presentationClickThrough.checked,
@@ -4228,6 +4237,14 @@ Drag on canvas - Move visualization position`);
           isPresentationActive = false;
           stopPresentationFrames();
           updatePresentationButton(false);
+        });
+
+        // Event: Listen for presentation window position changes (after dragging)
+        window.electronAPI.onPresentationPositionChanged(({ x, y }) => {
+          currentPresentationX = x;
+          currentPresentationY = y;
+          // Persist position to settings
+          saveSettings(getCurrentSettings());
         });
       }
 
