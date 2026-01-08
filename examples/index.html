@@ -1532,17 +1532,71 @@
             <option value="both">Both</option>
           </select>
         </label>
-        <label data-tooltip="Frequency range in Hz to monitor for blinking trigger">
-          Frequency Range (Hz): <span id="blinkFrequencyValue">60 - 250</span>
-          <div style="display: flex; gap: 8px;">
-            <input type="range" id="blinkFrequencyMin" min="20" max="500" value="60" style="flex: 1;">
-            <input type="range" id="blinkFrequencyMax" min="20" max="2000" value="250" style="flex: 1;">
+        <!-- Debug Audio File Section -->
+        <div style="grid-column: 1 / -1; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--spacing-md); background: rgba(0, 0, 0, 0.2); margin-top: var(--spacing-sm);">
+          <div style="display: flex; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-md);">
+            <label style="flex-direction: row; align-items: center; margin: 0;" data-tooltip="Use a debug audio file to configure blink effect settings. The selected interval will determine frequency and volume thresholds.">
+              <input type="checkbox" id="blinkDebugModeEnabled" aria-label="Enable debug mode"> Use Debug Audio File
+            </label>
           </div>
-        </label>
-        <label data-tooltip="Volume threshold (0-255) that must be exceeded to trigger blink">
-          Volume Threshold: <span id="blinkThresholdValue">200</span>
-          <input type="range" id="blinkThreshold" min="50" max="255" value="200">
-        </label>
+          <div id="blinkDebugControls" style="display: none;">
+            <div style="margin-bottom: var(--spacing-md);">
+              <label data-tooltip="Select an audio file to analyze for blink effect configuration">
+                Debug Audio File
+                <input type="file" id="blinkDebugAudioFile" accept="audio/*" aria-label="Select debug audio file">
+              </label>
+              <div id="blinkDebugFileName" style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;"></div>
+            </div>
+            <!-- Waveform Visualization Container -->
+            <div id="blinkWaveformContainer" style="display: none; margin-bottom: var(--spacing-md);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-sm);">
+                <span style="font-size: 13px; color: var(--color-text-secondary);">Select interval for blink trigger:</span>
+                <span id="blinkIntervalDisplay" style="font-size: 12px; color: var(--color-primary);">0.00s - 0.00s</span>
+              </div>
+              <div style="position: relative; background: rgba(0, 0, 0, 0.3); border-radius: var(--radius-sm); overflow: hidden; cursor: crosshair;">
+                <canvas id="blinkWaveformCanvas" width="600" height="80" style="display: block; width: 100%; height: 80px;"></canvas>
+                <div id="blinkSelectionOverlay" style="position: absolute; top: 0; bottom: 0; background: rgba(0, 255, 136, 0.2); border-left: 2px solid var(--color-primary); border-right: 2px solid var(--color-primary); pointer-events: none; display: none;"></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                <span id="blinkWaveformStart" style="font-size: 11px; color: var(--color-text-muted);">0:00</span>
+                <span id="blinkWaveformEnd" style="font-size: 11px; color: var(--color-text-muted);">0:00</span>
+              </div>
+              <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-sm);">
+                <button type="button" id="blinkPlayIntervalBtn" class="btn-secondary" style="padding: 6px 12px; min-width: auto; font-size: 12px;" disabled>
+                  Play Interval
+                </button>
+                <button type="button" id="blinkClearIntervalBtn" class="btn-secondary" style="padding: 6px 12px; min-width: auto; font-size: 12px;" disabled>
+                  Clear Selection
+                </button>
+              </div>
+              <p style="font-size: 11px; color: var(--color-text-muted); margin-top: var(--spacing-sm);">
+                Click and drag on the waveform to select an interval. The blink effect will trigger based on frequencies and volume in this interval.
+              </p>
+            </div>
+            <!-- Extracted Parameters Display -->
+            <div id="blinkExtractedParams" style="display: none; padding: var(--spacing-sm); background: rgba(0, 255, 136, 0.1); border-radius: var(--radius-sm); margin-bottom: var(--spacing-md);">
+              <div style="font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px;">Extracted from interval:</div>
+              <div style="display: flex; gap: var(--spacing-md); font-size: 13px;">
+                <span>Frequency: <strong id="blinkExtractedFreq" style="color: var(--color-primary);">-</strong></span>
+                <span>Threshold: <strong id="blinkExtractedThreshold" style="color: var(--color-primary);">-</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Manual Configuration (shown when debug mode is disabled) -->
+        <div id="blinkManualControls">
+          <label data-tooltip="Frequency range in Hz to monitor for blinking trigger">
+            Frequency Range (Hz): <span id="blinkFrequencyValue">60 - 250</span>
+            <div style="display: flex; gap: 8px;">
+              <input type="range" id="blinkFrequencyMin" min="20" max="500" value="60" style="flex: 1;">
+              <input type="range" id="blinkFrequencyMax" min="20" max="2000" value="250" style="flex: 1;">
+            </div>
+          </label>
+          <label data-tooltip="Volume threshold (0-255) that must be exceeded to trigger blink">
+            Volume Threshold: <span id="blinkThresholdValue">200</span>
+            <input type="range" id="blinkThreshold" min="50" max="255" value="200">
+          </label>
+        </div>
         <label data-tooltip="Intensity of the blink effect (0-100%)">
           Blink Intensity: <span id="blinkIntensityValue">80%</span>
           <input type="range" id="blinkIntensity" min="0" max="100" value="80">
@@ -1796,6 +1850,24 @@
       const blinkDuration = document.getElementById('blinkDuration');
       const blinkDurationValue = document.getElementById('blinkDurationValue');
 
+      // Blink debug mode controls
+      const blinkDebugModeEnabled = document.getElementById('blinkDebugModeEnabled');
+      const blinkDebugControls = document.getElementById('blinkDebugControls');
+      const blinkDebugAudioFile = document.getElementById('blinkDebugAudioFile');
+      const blinkDebugFileName = document.getElementById('blinkDebugFileName');
+      const blinkWaveformContainer = document.getElementById('blinkWaveformContainer');
+      const blinkWaveformCanvas = document.getElementById('blinkWaveformCanvas');
+      const blinkSelectionOverlay = document.getElementById('blinkSelectionOverlay');
+      const blinkIntervalDisplay = document.getElementById('blinkIntervalDisplay');
+      const blinkWaveformStart = document.getElementById('blinkWaveformStart');
+      const blinkWaveformEnd = document.getElementById('blinkWaveformEnd');
+      const blinkPlayIntervalBtn = document.getElementById('blinkPlayIntervalBtn');
+      const blinkClearIntervalBtn = document.getElementById('blinkClearIntervalBtn');
+      const blinkExtractedParams = document.getElementById('blinkExtractedParams');
+      const blinkExtractedFreq = document.getElementById('blinkExtractedFreq');
+      const blinkExtractedThreshold = document.getElementById('blinkExtractedThreshold');
+      const blinkManualControls = document.getElementById('blinkManualControls');
+
       // Presentation mode elements
       const presentationTab = document.getElementById('presentationTab');
       const togglePresentationBtn = document.getElementById('togglePresentationBtn');
@@ -1859,6 +1931,12 @@
         imageBlinkThreshold: 200,
         imageBlinkIntensity: 80,
         imageBlinkDuration: 150,
+        // Blink debug mode settings
+        blinkDebugModeEnabled: false,
+        blinkDebugAudioData: null, // base64 encoded audio data
+        blinkDebugAudioName: null, // original filename
+        blinkDebugIntervalStart: 0, // interval start time in seconds
+        blinkDebugIntervalEnd: 0, // interval end time in seconds
         // Presentation mode settings
         presentationWindowMode: 'alwaysOnTop',
         presentationWindowType: 'frameless',
@@ -1954,6 +2032,18 @@
       let currentBackgroundImageUrl = null;
       let currentCenterImageUrl = null;
 
+      // Blink debug mode state
+      let blinkDebugAudioBuffer = null;
+      let blinkDebugAudioContext = null;
+      let blinkDebugAudioSource = null;
+      let blinkDebugAudioDuration = 0;
+      let blinkDebugIntervalStartTime = 0;
+      let blinkDebugIntervalEndTime = 0;
+      let blinkDebugIsSelecting = false;
+      let blinkDebugSelectionStartX = 0;
+      let blinkDebugAudioDataUrl = null;
+      let blinkDebugAudioFileName = null;
+
       // Get current settings from UI
       function getCurrentSettings() {
         return {
@@ -1998,6 +2088,12 @@
           imageBlinkThreshold: parseInt(blinkThreshold.value),
           imageBlinkIntensity: parseInt(blinkIntensity.value),
           imageBlinkDuration: parseInt(blinkDuration.value),
+          // Blink debug mode settings
+          blinkDebugModeEnabled: blinkDebugModeEnabled.checked,
+          blinkDebugAudioData: blinkDebugAudioDataUrl,
+          blinkDebugAudioName: blinkDebugAudioFileName,
+          blinkDebugIntervalStart: blinkDebugIntervalStartTime,
+          blinkDebugIntervalEnd: blinkDebugIntervalEndTime,
           // Presentation mode settings
           presentationWindowMode: presentationWindowMode.value,
           presentationWindowType: presentationWindowType.value,
@@ -2109,6 +2205,22 @@
         const isParticles = settings.visualizer === 'particles';
         barShapeControls.style.display = isBars ? 'grid' : 'none';
         particleShapeControls.style.display = isParticles ? 'grid' : 'none';
+
+        // Blink debug mode settings
+        blinkDebugModeEnabled.checked = settings.blinkDebugModeEnabled || false;
+        blinkDebugControls.style.display = settings.blinkDebugModeEnabled ? 'block' : 'none';
+        blinkManualControls.style.display = settings.blinkDebugModeEnabled ? 'none' : 'block';
+
+        // Restore debug audio data if saved
+        if (settings.blinkDebugAudioData) {
+          blinkDebugAudioDataUrl = settings.blinkDebugAudioData;
+          blinkDebugAudioFileName = settings.blinkDebugAudioName;
+          blinkDebugIntervalStartTime = settings.blinkDebugIntervalStart || 0;
+          blinkDebugIntervalEndTime = settings.blinkDebugIntervalEnd || 0;
+          if (blinkDebugAudioFileName) {
+            blinkDebugFileName.textContent = blinkDebugAudioFileName;
+          }
+        }
 
         // Apply presentation mode settings
         presentationWindowMode.value = settings.presentationWindowMode || 'alwaysOnTop';
@@ -2922,6 +3034,368 @@
         saveSettings(getCurrentSettings());
         updatePreview();
       });
+
+      // ============================================================
+      // Blink Debug Mode Functionality
+      // ============================================================
+
+      // Helper function to format time as m:ss or mm:ss
+      function formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+      }
+
+      // Helper function to format time with decimals
+      function formatTimeWithDecimals(seconds) {
+        return seconds.toFixed(2) + 's';
+      }
+
+      // Draw waveform on canvas
+      function drawBlinkWaveform(audioBuffer) {
+        const canvas = blinkWaveformCanvas;
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // Clear canvas
+        ctx.clearRect(0, 0, width, height);
+
+        // Get audio data (use first channel)
+        const channelData = audioBuffer.getChannelData(0);
+        const samplesPerPixel = Math.floor(channelData.length / width);
+
+        // Draw waveform
+        ctx.fillStyle = 'rgba(0, 255, 136, 0.8)';
+        const centerY = height / 2;
+
+        for (let x = 0; x < width; x++) {
+          const startSample = x * samplesPerPixel;
+          let min = 1;
+          let max = -1;
+
+          // Find min and max in this segment
+          for (let i = 0; i < samplesPerPixel && startSample + i < channelData.length; i++) {
+            const sample = channelData[startSample + i];
+            if (sample < min) min = sample;
+            if (sample > max) max = sample;
+          }
+
+          // Draw vertical line representing the amplitude range
+          const minY = centerY + min * (height / 2);
+          const maxY = centerY + max * (height / 2);
+          ctx.fillRect(x, maxY, 1, minY - maxY || 1);
+        }
+
+        // Draw center line
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.beginPath();
+        ctx.moveTo(0, centerY);
+        ctx.lineTo(width, centerY);
+        ctx.stroke();
+      }
+
+      // Update selection overlay position
+      function updateSelectionOverlay() {
+        if (blinkDebugAudioDuration <= 0) return;
+
+        const canvas = blinkWaveformCanvas;
+        const width = canvas.offsetWidth;
+
+        if (blinkDebugIntervalStartTime > 0 || blinkDebugIntervalEndTime > 0) {
+          const startX = (blinkDebugIntervalStartTime / blinkDebugAudioDuration) * width;
+          const endX = (blinkDebugIntervalEndTime / blinkDebugAudioDuration) * width;
+
+          blinkSelectionOverlay.style.display = 'block';
+          blinkSelectionOverlay.style.left = startX + 'px';
+          blinkSelectionOverlay.style.width = (endX - startX) + 'px';
+
+          blinkIntervalDisplay.textContent = `${formatTimeWithDecimals(blinkDebugIntervalStartTime)} - ${formatTimeWithDecimals(blinkDebugIntervalEndTime)}`;
+          blinkPlayIntervalBtn.disabled = false;
+          blinkClearIntervalBtn.disabled = false;
+        } else {
+          blinkSelectionOverlay.style.display = 'none';
+          blinkIntervalDisplay.textContent = '0.00s - 0.00s';
+          blinkPlayIntervalBtn.disabled = true;
+          blinkClearIntervalBtn.disabled = true;
+        }
+      }
+
+      // Analyze audio interval to extract frequency and volume parameters
+      async function analyzeAudioInterval(audioBuffer, startTime, endTime) {
+        if (!audioBuffer || startTime >= endTime) return null;
+
+        const sampleRate = audioBuffer.sampleRate;
+        const channelData = audioBuffer.getChannelData(0);
+
+        // Calculate sample indices
+        const startSample = Math.floor(startTime * sampleRate);
+        const endSample = Math.floor(endTime * sampleRate);
+
+        if (startSample >= channelData.length) return null;
+
+        // Extract the interval data
+        const intervalData = channelData.slice(startSample, Math.min(endSample, channelData.length));
+
+        // Calculate RMS volume
+        let sumSquares = 0;
+        let maxAmp = 0;
+        for (let i = 0; i < intervalData.length; i++) {
+          const amp = Math.abs(intervalData[i]);
+          sumSquares += amp * amp;
+          if (amp > maxAmp) maxAmp = amp;
+        }
+        const rms = Math.sqrt(sumSquares / intervalData.length);
+
+        // Convert RMS to 0-255 scale (approximate threshold)
+        const volumeThreshold = Math.round(maxAmp * 255);
+
+        // Perform simple frequency analysis using zero crossing rate
+        // This gives a rough estimate of the dominant frequency
+        let zeroCrossings = 0;
+        for (let i = 1; i < intervalData.length; i++) {
+          if ((intervalData[i] >= 0 && intervalData[i - 1] < 0) ||
+              (intervalData[i] < 0 && intervalData[i - 1] >= 0)) {
+            zeroCrossings++;
+          }
+        }
+
+        // Estimate frequency from zero crossing rate
+        const durationSecs = (endTime - startTime);
+        const estimatedFreq = (zeroCrossings / 2) / durationSecs;
+
+        // Create a reasonable frequency range around the estimated frequency
+        const freqMin = Math.max(20, Math.round(estimatedFreq * 0.5));
+        const freqMax = Math.min(2000, Math.round(estimatedFreq * 1.5));
+
+        return {
+          frequencyMin: freqMin,
+          frequencyMax: freqMax,
+          volumeThreshold: Math.max(50, Math.min(255, volumeThreshold)),
+        };
+      }
+
+      // Update extracted parameters display and apply to visualizer
+      async function updateExtractedParams() {
+        if (!blinkDebugAudioBuffer || blinkDebugIntervalStartTime >= blinkDebugIntervalEndTime) {
+          blinkExtractedParams.style.display = 'none';
+          return;
+        }
+
+        const params = await analyzeAudioInterval(
+          blinkDebugAudioBuffer,
+          blinkDebugIntervalStartTime,
+          blinkDebugIntervalEndTime
+        );
+
+        if (params) {
+          blinkExtractedParams.style.display = 'block';
+          blinkExtractedFreq.textContent = `${params.frequencyMin} - ${params.frequencyMax} Hz`;
+          blinkExtractedThreshold.textContent = params.volumeThreshold;
+
+          // Apply the extracted parameters to the visualizer
+          blinkFrequencyMin.value = params.frequencyMin;
+          blinkFrequencyMax.value = params.frequencyMax;
+          blinkThreshold.value = params.volumeThreshold;
+          blinkFrequencyValue.textContent = `${params.frequencyMin} - ${params.frequencyMax}`;
+          blinkThresholdValue.textContent = params.volumeThreshold;
+
+          recorder.setVisualizerOptions(getCurrentOptions());
+          saveSettings(getCurrentSettings());
+        }
+      }
+
+      // Load audio file and create waveform visualization
+      async function loadBlinkDebugAudio(dataUrl) {
+        try {
+          // Create audio context if needed
+          if (!blinkDebugAudioContext) {
+            blinkDebugAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+          }
+
+          // Decode audio data
+          const response = await fetch(dataUrl);
+          const arrayBuffer = await response.arrayBuffer();
+          blinkDebugAudioBuffer = await blinkDebugAudioContext.decodeAudioData(arrayBuffer);
+          blinkDebugAudioDuration = blinkDebugAudioBuffer.duration;
+
+          // Draw waveform
+          drawBlinkWaveform(blinkDebugAudioBuffer);
+
+          // Update time labels
+          blinkWaveformStart.textContent = '0:00';
+          blinkWaveformEnd.textContent = formatTime(blinkDebugAudioDuration);
+
+          // Show waveform container
+          blinkWaveformContainer.style.display = 'block';
+
+          // Update selection overlay
+          updateSelectionOverlay();
+
+          // Update extracted params if interval is set
+          if (blinkDebugIntervalStartTime > 0 || blinkDebugIntervalEndTime > 0) {
+            await updateExtractedParams();
+          }
+        } catch (error) {
+          console.error('Error loading debug audio:', error);
+          blinkWaveformContainer.style.display = 'none';
+        }
+      }
+
+      // Debug mode enable/disable handler
+      blinkDebugModeEnabled.addEventListener('change', () => {
+        const enabled = blinkDebugModeEnabled.checked;
+        blinkDebugControls.style.display = enabled ? 'block' : 'none';
+        blinkManualControls.style.display = enabled ? 'none' : 'block';
+
+        // If enabling and we have saved audio data, load it
+        if (enabled && blinkDebugAudioDataUrl) {
+          loadBlinkDebugAudio(blinkDebugAudioDataUrl);
+        }
+
+        saveSettings(getCurrentSettings());
+      });
+
+      // Debug audio file input handler
+      blinkDebugAudioFile.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        blinkDebugAudioFileName = file.name;
+        blinkDebugFileName.textContent = file.name;
+
+        // Convert to data URL for persistence
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          blinkDebugAudioDataUrl = event.target.result;
+
+          // Reset interval selection
+          blinkDebugIntervalStartTime = 0;
+          blinkDebugIntervalEndTime = 0;
+
+          // Load and display waveform
+          await loadBlinkDebugAudio(blinkDebugAudioDataUrl);
+
+          saveSettings(getCurrentSettings());
+        };
+        reader.readAsDataURL(file);
+      });
+
+      // Waveform canvas mouse events for interval selection
+      blinkWaveformCanvas.addEventListener('mousedown', (e) => {
+        if (!blinkDebugAudioBuffer) return;
+
+        blinkDebugIsSelecting = true;
+        const rect = blinkWaveformCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        blinkDebugSelectionStartX = x;
+
+        // Calculate time from x position
+        const width = rect.width;
+        blinkDebugIntervalStartTime = (x / width) * blinkDebugAudioDuration;
+        blinkDebugIntervalEndTime = blinkDebugIntervalStartTime;
+
+        updateSelectionOverlay();
+      });
+
+      blinkWaveformCanvas.addEventListener('mousemove', (e) => {
+        if (!blinkDebugIsSelecting) return;
+
+        const rect = blinkWaveformCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const width = rect.width;
+
+        // Calculate time from x position
+        const currentTime = (x / width) * blinkDebugAudioDuration;
+
+        // Update start and end times based on drag direction
+        if (x >= blinkDebugSelectionStartX) {
+          blinkDebugIntervalStartTime = (blinkDebugSelectionStartX / width) * blinkDebugAudioDuration;
+          blinkDebugIntervalEndTime = currentTime;
+        } else {
+          blinkDebugIntervalStartTime = currentTime;
+          blinkDebugIntervalEndTime = (blinkDebugSelectionStartX / width) * blinkDebugAudioDuration;
+        }
+
+        // Clamp values
+        blinkDebugIntervalStartTime = Math.max(0, blinkDebugIntervalStartTime);
+        blinkDebugIntervalEndTime = Math.min(blinkDebugAudioDuration, blinkDebugIntervalEndTime);
+
+        updateSelectionOverlay();
+      });
+
+      blinkWaveformCanvas.addEventListener('mouseup', async () => {
+        if (blinkDebugIsSelecting) {
+          blinkDebugIsSelecting = false;
+
+          // Analyze the selected interval
+          await updateExtractedParams();
+          saveSettings(getCurrentSettings());
+        }
+      });
+
+      blinkWaveformCanvas.addEventListener('mouseleave', async () => {
+        if (blinkDebugIsSelecting) {
+          blinkDebugIsSelecting = false;
+
+          // Analyze the selected interval
+          await updateExtractedParams();
+          saveSettings(getCurrentSettings());
+        }
+      });
+
+      // Play interval button handler
+      blinkPlayIntervalBtn.addEventListener('click', () => {
+        if (!blinkDebugAudioBuffer || !blinkDebugAudioContext) return;
+        if (blinkDebugIntervalStartTime >= blinkDebugIntervalEndTime) return;
+
+        // Stop any existing playback
+        if (blinkDebugAudioSource) {
+          try {
+            blinkDebugAudioSource.stop();
+          } catch (e) {
+            // Ignore if already stopped
+          }
+        }
+
+        // Create new source and play the interval
+        blinkDebugAudioSource = blinkDebugAudioContext.createBufferSource();
+        blinkDebugAudioSource.buffer = blinkDebugAudioBuffer;
+        blinkDebugAudioSource.connect(blinkDebugAudioContext.destination);
+
+        const duration = blinkDebugIntervalEndTime - blinkDebugIntervalStartTime;
+        blinkDebugAudioSource.start(0, blinkDebugIntervalStartTime, duration);
+
+        // Update button text during playback
+        blinkPlayIntervalBtn.textContent = 'Playing...';
+        blinkPlayIntervalBtn.disabled = true;
+
+        setTimeout(() => {
+          blinkPlayIntervalBtn.textContent = 'Play Interval';
+          blinkPlayIntervalBtn.disabled = false;
+        }, duration * 1000);
+      });
+
+      // Clear interval button handler
+      blinkClearIntervalBtn.addEventListener('click', () => {
+        blinkDebugIntervalStartTime = 0;
+        blinkDebugIntervalEndTime = 0;
+        blinkExtractedParams.style.display = 'none';
+        updateSelectionOverlay();
+        saveSettings(getCurrentSettings());
+      });
+
+      // Initialize debug mode from saved settings after page load
+      if (savedSettings.blinkDebugModeEnabled && savedSettings.blinkDebugAudioData) {
+        // Defer loading to allow page to fully initialize
+        setTimeout(() => {
+          loadBlinkDebugAudio(savedSettings.blinkDebugAudioData);
+        }, 500);
+      }
+
+      // ============================================================
+      // End Blink Debug Mode Functionality
+      // ============================================================
 
       // Image Cropper functionality
       const cropperModal = document.getElementById('imageCropperModal');
