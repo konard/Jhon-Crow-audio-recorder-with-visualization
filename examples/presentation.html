@@ -75,6 +75,7 @@
       // Presentation settings
       let settings = {
         backgroundOpacity: 0,
+        visualizationOpacity: 1,
       };
 
       // Image element for receiving frames from main window
@@ -94,6 +95,11 @@
       // Update background opacity
       function updateBackgroundOpacity(opacity) {
         backgroundLayer.style.opacity = opacity;
+      }
+
+      // Update visualization (canvas) opacity
+      function updateVisualizationOpacity(opacity) {
+        canvas.style.opacity = opacity;
       }
 
       // Draw the received frame image to canvas
@@ -165,6 +171,11 @@
           // Update background opacity
           if (newSettings.backgroundOpacity !== undefined) {
             updateBackgroundOpacity(newSettings.backgroundOpacity);
+          }
+
+          // Update visualization opacity
+          if (newSettings.visualizationOpacity !== undefined) {
+            updateVisualizationOpacity(newSettings.visualizationOpacity);
           }
         });
 
