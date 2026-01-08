@@ -281,24 +281,56 @@
     .settings-section {
       background: rgba(0, 0, 0, 0.2);
       border-radius: var(--radius-md);
-      padding: var(--spacing-md);
       border: 1px solid var(--color-border);
+      overflow: hidden;
     }
 
     .settings-section-header {
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: var(--spacing-sm);
-      margin-bottom: var(--spacing-md);
-      padding-bottom: var(--spacing-sm);
-      border-bottom: 1px solid var(--color-border);
+      padding: var(--spacing-md);
+      cursor: pointer;
+      background: rgba(0, 0, 0, 0.2);
+      transition: background var(--transition-fast);
+      user-select: none;
       color: var(--color-text-primary);
       font-size: 14px;
       font-weight: 600;
     }
 
+    .settings-section-header:hover {
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .settings-section-title {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+
     .settings-section-icon {
       font-size: 16px;
+    }
+
+    .settings-section-toggle {
+      font-size: 12px;
+      transition: transform var(--transition-fast);
+    }
+
+    .settings-section.expanded .settings-section-toggle {
+      transform: rotate(180deg);
+    }
+
+    .settings-section-content {
+      display: none;
+      padding: var(--spacing-md);
+      border-top: 1px solid var(--color-border);
+    }
+
+    .settings-section.expanded .settings-section-content {
+      display: block;
     }
 
     @media (max-width: 900px) {
@@ -1181,12 +1213,16 @@
         <div class="settings-column">
 
           <!-- Visualizer Section -->
-          <div class="settings-section">
+          <div class="settings-section" data-section="visualizer">
             <div class="settings-section-header">
-              <span class="settings-section-icon">📊</span>
-              <span>Visualizer</span>
+              <div class="settings-section-title">
+                <span class="settings-section-icon">📊</span>
+                <span>Visualizer</span>
+              </div>
+              <span class="settings-section-toggle">▼</span>
             </div>
-            <div class="option-group">
+            <div class="settings-section-content">
+              <div class="option-group">
               <label data-tooltip="Choose the animation style for your audio visualization. Each type reacts differently to sound frequencies.">
                 Visualizer Type
                 <select id="visualizerSelect" aria-label="Select visualizer type">
@@ -1215,16 +1251,21 @@
                 Sensitivity: <span id="sensitivityValue">1.0x</span>
                 <input type="range" id="sensitivity" min="0.1" max="5.0" step="0.1" value="1.0" aria-label="Adjust sensitivity">
               </label>
+              </div>
             </div>
           </div>
 
           <!-- Colors Section -->
-          <div class="settings-section">
+          <div class="settings-section" data-section="colors">
             <div class="settings-section-header">
-              <span class="settings-section-icon">🎨</span>
-              <span>Colors</span>
+              <div class="settings-section-title">
+                <span class="settings-section-icon">🎨</span>
+                <span>Colors</span>
+              </div>
+              <span class="settings-section-toggle">▼</span>
             </div>
-            <div class="option-group">
+            <div class="settings-section-content">
+              <div class="option-group">
               <label data-tooltip="Main color used for visualization elements like bars, waveforms, and particles.">
                 Primary Color
                 <input type="color" id="primaryColor" value="#00ff88" aria-label="Select primary color">
@@ -1245,16 +1286,21 @@
               <label style="flex-direction: row; align-items: center;" data-tooltip="When enabled, visualizers will use your primary/secondary colors instead of their default color schemes.">
                 <input type="checkbox" id="useCustomColors" aria-label="Use custom colors"> Use Custom Colors
               </label>
+              </div>
             </div>
           </div>
 
           <!-- Animation Section (ADSR) -->
-          <div class="settings-section">
+          <div class="settings-section" data-section="animation">
             <div class="settings-section-header">
-              <span class="settings-section-icon">⚡</span>
-              <span>Animation</span>
+              <div class="settings-section-title">
+                <span class="settings-section-icon">⚡</span>
+                <span>Animation</span>
+              </div>
+              <span class="settings-section-toggle">▼</span>
             </div>
-            <div class="option-group">
+            <div class="settings-section-content">
+              <div class="option-group">
               <div class="adsr-accordion" id="adsrAccordion">
                 <div class="adsr-accordion-header" id="adsrAccordionHeader" aria-expanded="false" aria-controls="adsrAccordionContent" data-tooltip="ADSR (Attack, Decay, Sustain, Release) controls how the visualization responds to audio dynamics over time.">
                   <span class="adsr-accordion-title">
@@ -1300,6 +1346,7 @@
                   </div>
                 </div>
               </div>
+              </div>
             </div>
           </div>
 
@@ -1309,12 +1356,16 @@
         <div class="settings-column">
 
           <!-- Background Section -->
-          <div class="settings-section">
+          <div class="settings-section" data-section="background">
             <div class="settings-section-header">
-              <span class="settings-section-icon">🖼️</span>
-              <span>Background</span>
+              <div class="settings-section-title">
+                <span class="settings-section-icon">🖼️</span>
+                <span>Background</span>
+              </div>
+              <span class="settings-section-toggle">▼</span>
             </div>
-            <div class="option-group">
+            <div class="settings-section-content">
+              <div class="option-group">
               <label data-tooltip="Upload an image or GIF to use as the visualization background. Supports PNG, JPG, GIF, and WebP formats.">
                 Background Image (optional)
                 <input type="file" id="bgImage" accept="image/*" aria-label="Upload background image">
@@ -1368,15 +1419,20 @@
                 Tip: Hold Shift and drag on canvas to move center image. Scroll over center image to zoom.
               </p>
             </div>
+            </div>
           </div>
 
           <!-- Transform Section -->
-          <div class="settings-section">
+          <div class="settings-section" data-section="transform">
             <div class="settings-section-header">
-              <span class="settings-section-icon">📐</span>
-              <span>Transform</span>
+              <div class="settings-section-title">
+                <span class="settings-section-icon">📐</span>
+                <span>Transform</span>
+              </div>
+              <span class="settings-section-toggle">▼</span>
             </div>
-            <div class="option-group">
+            <div class="settings-section-content">
+              <div class="option-group">
               <label data-tooltip="Move the visualization horizontally. Negative values shift left, positive shift right. Drag on canvas also works.">
                 Offset X (Horizontal Position)
                 <input type="range" id="offsetX" min="-200" max="200" value="0">
@@ -1406,15 +1462,20 @@
                 <input type="checkbox" id="mirrorHorizontal" aria-label="Enable horizontal mirror"> Mirror Horizontal (Center Flip)
               </label>
             </div>
+            </div>
           </div>
 
           <!-- Effects Section -->
-          <div class="settings-section">
+          <div class="settings-section" data-section="effects">
             <div class="settings-section-header">
-              <span class="settings-section-icon">✨</span>
-              <span>Effects</span>
+              <div class="settings-section-title">
+                <span class="settings-section-icon">✨</span>
+                <span>Effects</span>
+              </div>
+              <span class="settings-section-toggle">▼</span>
             </div>
-            <div class="option-group">
+            <div class="settings-section-content">
+              <div class="option-group">
               <label data-tooltip="Apply a filter effect to the background layer. Effects are applied between the background and the visualization.">
                 Layer Effect
                 <select id="layerEffect" aria-label="Select layer effect">
@@ -1434,6 +1495,7 @@
                 <input type="range" id="layerEffectIntensity" min="0" max="100" value="50">
                 <span id="layerEffectIntensityValue">50%</span>
               </label>
+              </div>
             </div>
           </div>
 
@@ -1743,6 +1805,7 @@
 
       // Settings persistence
       const SETTINGS_KEY = 'audio-recorder-settings';
+      const ACCORDION_STATE_KEY = 'audio-recorder-accordion-states';
 
       // Default settings
       const defaultSettings = {
@@ -1816,6 +1879,65 @@
         } catch (error) {
           console.warn('Failed to save settings:', error);
         }
+      }
+
+      // Accordion state management
+      function loadAccordionStates() {
+        try {
+          const saved = localStorage.getItem(ACCORDION_STATE_KEY);
+          if (saved) {
+            return JSON.parse(saved);
+          }
+        } catch (error) {
+          console.warn('Failed to load accordion states:', error);
+        }
+        // Default: all sections expanded
+        return {
+          visualizer: true,
+          colors: true,
+          animation: true,
+          background: true,
+          transform: true,
+          effects: true
+        };
+      }
+
+      function saveAccordionStates(states) {
+        try {
+          localStorage.setItem(ACCORDION_STATE_KEY, JSON.stringify(states));
+        } catch (error) {
+          console.warn('Failed to save accordion states:', error);
+        }
+      }
+
+      // Initialize accordions
+      function initializeAccordions() {
+        const sections = document.querySelectorAll('.settings-section[data-section]');
+        const accordionStates = loadAccordionStates();
+
+        sections.forEach(section => {
+          const sectionName = section.getAttribute('data-section');
+          const header = section.querySelector('.settings-section-header');
+          const isExpanded = accordionStates[sectionName] !== false; // Default to true
+
+          // Set initial state
+          if (isExpanded) {
+            section.classList.add('expanded');
+            header.setAttribute('aria-expanded', 'true');
+          } else {
+            header.setAttribute('aria-expanded', 'false');
+          }
+
+          // Add click handler
+          header.addEventListener('click', () => {
+            const wasExpanded = section.classList.toggle('expanded');
+            header.setAttribute('aria-expanded', wasExpanded);
+
+            // Save state
+            accordionStates[sectionName] = wasExpanded;
+            saveAccordionStates(accordionStates);
+          });
+        });
       }
 
       // Track background image URL
@@ -1991,6 +2113,9 @@
         // Show/hide size controls based on window type
         presentationSizeControls.style.display = settings.presentationWindowType === 'fullscreen' ? 'none' : 'grid';
       }
+
+      // Initialize accordions
+      initializeAccordions();
 
       // Load and apply saved settings on startup
       const savedSettings = loadSettings();
