@@ -391,6 +391,81 @@ describe('Pipeline Mode', () => {
     cy.get('#pipelineTimezoneSelect').should('have.value', 'Europe/Moscow');
   });
 
+  it('keeps the publication editor focused while typing and uploads the entered time', () => {
+    let uploadedPublishAt;
+    cy.intercept('POST', 'https://www.googleapis.com/upload/youtube/v3/videos*', (req) => {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      uploadedPublishAt = body.status.publishAt;
+      req.reply({
+        statusCode: 200,
+        headers: { Location: 'https://upload.example/scheduled-video' },
+        body: '',
+      });
+    }).as('startScheduledUpload');
+    cy.intercept('PUT', 'https://upload.example/scheduled-video', {
+      statusCode: 201,
+      body: { id: 'scheduled-video-id' },
+    }).as('finishScheduledUpload');
+
+    cy.visit('/examples/index.html', {
+      onBeforeLoad(win) {
+        seedSavedVisualizationPresets(win);
+        win.localStorage.setItem('audio-recorder-pipeline-timezone', 'Europe/Moscow');
+        win.localStorage.setItem('audio-recorder-youtube-token-state', JSON.stringify({
+          accessToken: 'stored-token',
+          accessTokenExpiresAt: Date.now() + 3600 * 1000,
+          tokenScope: combinedYouTubeScope,
+        }));
+      },
+    });
+    cy.waitForVisualization();
+    cy.contains('.tab', 'Pipeline').click();
+
+    cy.window().then((win) => {
+      win.AudioRecorderPipeline.replaceStages([{
+        name: 'Scheduled upload',
+        action: 'upload-youtube',
+        scheduleMode: 'absolute',
+        publishAtLocal: '2026-10-04T00:00',
+        publishImmediately: false,
+        privacyStatus: 'private',
+      }]);
+    });
+
+    cy.get('.pipeline-stage-file-input').selectFile({
+      contents: Cypress.Buffer.from('scheduled-video'),
+      fileName: 'scheduled.mp4',
+      mimeType: 'video/mp4',
+    }, { force: true });
+
+    cy.get('.pipeline-publish-at').then(($input) => {
+      const input = $input[0];
+      input.focus();
+      input.value = '2026-10-04T01:00';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      expect(input.isConnected).to.equal(true);
+      expect(input).to.equal(input.ownerDocument.activeElement);
+
+      input.value = '2026-10-04T17:00';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      expect(input.isConnected).to.equal(true);
+      expect(input).to.equal(input.ownerDocument.activeElement);
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    cy.get('.pipeline-publish-at').should('have.value', '2026-10-04T17:00');
+    cy.window().then((win) => {
+      const [stage] = win.AudioRecorderPipeline.getStages();
+      expect(stage.publishAtLocal).to.equal('2026-10-04T17:00');
+    });
+
+    cy.get('#runPipelineBtn').should('not.be.disabled').click({ force: true });
+    cy.wait('@startScheduledUpload');
+    cy.wait('@finishScheduledUpload').then(() => {
+      expect(uploadedPublishAt).to.equal('2026-10-04T14:00:00.000Z');
+    });
+  });
+
   it('uses saved visualization presets and disables inactive timing fields', () => {
     cy.get('.pipeline-stage').first().should('have.class', 'schedule-relative').within(() => {
       cy.contains('label', 'Preset').find('select').then(($select) => {

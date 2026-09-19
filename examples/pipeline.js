@@ -1917,10 +1917,42 @@
     positionPipelinePreviewTooltip(activePreviewTooltipTrigger, getPipelinePreviewTooltip());
   }
 
-  function parseLocalDate(value) {
+  function parseLocalDate(value, timezone = pipelineTimezone) {
     if (!value) return null;
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? null : date;
+    if (!timezone) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value);
+    if (!match) return null;
+    const [, year, month, day, hour, minute] = match.map(Number);
+    const naiveUtc = new Date(Date.UTC(year, month - 1, day, hour, minute));
+    try {
+      const parts = {};
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).formatToParts(naiveUtc).forEach(({ type, value: part }) => {
+        parts[type] = part;
+      });
+      const zonedTime = Date.UTC(
+        Number(parts.year),
+        Number(parts.month) - 1,
+        Number(parts.day),
+        Number(parts.hour === '24' ? 0 : parts.hour),
+        Number(parts.minute)
+      );
+      return new Date(naiveUtc.getTime() + naiveUtc.getTime() - zonedTime);
+    } catch (error) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
   }
 
   function addRelativeOffset(baseDate, stage) {
